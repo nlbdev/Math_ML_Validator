@@ -1,0 +1,519 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8"/>
+  <title>MathML Validator — Technical Documentation</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body { font-family: 'Segoe UI', Arial, sans-serif; background: #f5f7fa; color: #222; line-height: 1.6; }
+    .page { max-width: 1100px; margin: 0 auto; padding: 32px 24px; }
+
+    h1 { font-size: 2rem; color: #1a3a2a; border-bottom: 3px solid #31473A; padding-bottom: 12px; margin-bottom: 8px; }
+    h2 { font-size: 1.35rem; color: #31473A; margin: 32px 0 10px; border-left: 4px solid #31473A; padding-left: 12px; }
+    h3 { font-size: 1.05rem; color: #1a3a2a; margin: 18px 0 6px; }
+    p { margin: 8px 0; }
+    .subtitle { color: #555; font-size: 1rem; margin-bottom: 28px; }
+
+    /* Summary cards */
+    .cards { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 14px; margin: 18px 0; }
+    .card { background: #fff; border: 1px solid #dde3e8; border-radius: 8px; padding: 16px 18px; }
+    .card .label { font-size: 0.78rem; text-transform: uppercase; letter-spacing: 0.05em; color: #888; }
+    .card .value { font-size: 1.1rem; font-weight: 700; color: #31473A; margin-top: 4px; }
+
+    /* File table */
+    table { width: 100%; border-collapse: collapse; margin: 14px 0; background: #fff; border-radius: 8px; overflow: hidden; box-shadow: 0 1px 4px rgba(0,0,0,0.07); }
+    th { background: #31473A; color: #EDF4F2; padding: 10px 14px; text-align: left; font-size: 0.9rem; }
+    td { padding: 9px 14px; border-bottom: 1px solid #eee; font-size: 0.9rem; vertical-align: top; }
+    tr:last-child td { border-bottom: none; }
+    tr:nth-child(even) td { background: #f9fafb; }
+
+    /* Code blocks */
+    code { font-family: Consolas, 'Courier New', monospace; font-size: 0.85rem; background: #eef1f5; padding: 2px 6px; border-radius: 3px; }
+    pre { background: #1e2d24; color: #cfeadc; padding: 16px 18px; border-radius: 8px; overflow-x: auto; font-family: Consolas, monospace; font-size: 0.85rem; line-height: 1.55; margin: 12px 0; }
+    pre code { background: none; padding: 0; color: inherit; font-size: inherit; }
+
+    /* Flowchart */
+    .flowchart-wrapper { background: #fff; border: 1px solid #dde3e8; border-radius: 10px; padding: 28px 20px; margin: 20px 0; overflow-x: auto; }
+    svg text { font-family: 'Segoe UI', Arial, sans-serif; }
+
+    /* Issue list */
+    .rule-list { display: grid; gap: 10px; margin: 14px 0; }
+    .rule { background: #fff; border: 1px solid #dde3e8; border-radius: 8px; padding: 14px 16px; }
+    .rule .rid { font-family: monospace; font-size: 0.85rem; background: #e0f0e7; color: #1a3a2a; padding: 2px 8px; border-radius: 4px; font-weight: 700; }
+    .rule .rdesc { color: #444; margin-top: 6px; font-size: 0.92rem; }
+
+    /* Section boxes */
+    .box { background: #fff; border: 1px solid #dde3e8; border-radius: 8px; padding: 18px 20px; margin: 14px 0; }
+    .box.warn { border-left: 4px solid #e07b39; background: #fff9f5; }
+    .box.info { border-left: 4px solid #3a82c4; background: #f5f8ff; }
+
+    hr { border: none; border-top: 1px solid #e0e5ea; margin: 36px 0; }
+    ul { margin: 8px 0 8px 24px; }
+    li { margin: 4px 0; }
+
+    /* Data flow boxes */
+    .df { display: flex; flex-wrap: wrap; gap: 10px; margin: 14px 0; align-items: center; }
+    .df-box { background: #31473A; color: #EDF4F2; padding: 8px 16px; border-radius: 6px; font-size: 0.88rem; font-weight: 600; white-space: nowrap; }
+    .df-arrow { color: #888; font-size: 1.4rem; }
+
+    @media print {
+      body { background: #fff; }
+      .page { padding: 0; }
+    }
+  </style>
+</head>
+<body>
+<div class="page">
+
+  <h1>📘 MathML Validator — Technical Documentation</h1>
+  <p class="subtitle">Comprehensive reference for the EPUB MathML Validation Tool — architecture, data flow, file descriptions, and validation rule catalogue.</p>
+
+  <div class="cards">
+    <div class="card"><div class="label">Language</div><div class="value">C# (.NET)</div></div>
+    <div class="card"><div class="label">Input Format</div><div class="value">EPUB (.epub)</div></div>
+    <div class="card"><div class="label">Output Formats</div><div class="value">JSON &amp; HTML</div></div>
+    <div class="card"><div class="label">Source Files</div><div class="value">7 modules</div></div>
+    <div class="card"><div class="label">Active Test Rules</div><div class="value">2 (extensible)</div></div>
+  </div>
+
+  <!-- ═══════════════════════════════════ OVERVIEW ═══════════════════════════════════ -->
+  <h2>1. Overview</h2>
+  <div class="box info">
+    <p>The MathML Validator is a command-line .NET application that scans a folder of <strong>EPUB files</strong>, opens each one as a ZIP archive, parses all XHTML/HTML/XML entries, and runs a configurable set of <strong>MathML structural rules</strong> against every document. Results are written as both machine-readable <strong>JSON</strong> and human-readable <strong>HTML summary pages</strong>.</p>
+  </div>
+
+  <h3>Key Design Decisions</h3>
+  <ul>
+    <li>Rules are <strong>externally configurable</strong> via <code>rules.txt</code> — no recompilation needed to change which tests run.</li>
+    <li>A quick <strong>pre-check</strong> skips any EPUB entry that contains no MathML markup, avoiding unnecessary XML parsing.</li>
+    <li>If a summary HTML for an EPUB already exists, that file is <strong>skipped</strong> to avoid redundant processing.</li>
+    <li>Errors at any level (ZIP open, entry parse, rule execution) are <strong>captured as issue entries</strong> rather than crashing the run.</li>
+    <li>Rules return <code>XElement</code> objects, optionally wrapped in a <code>&lt;Context&gt;</code> element for richer snippet/line reporting.</li>
+  </ul>
+
+  <!-- ═══════════════════════════════════ FILE MAP ═══════════════════════════════════ -->
+  <h2>2. Source File Map</h2>
+  <table>
+    <tr><th>File</th><th>Responsibility</th><th>Key Types / Methods</th></tr>
+    <tr>
+      <td><code>Program.cs</code></td>
+      <td>Entry point. Orchestrates discovery, validation loop, and report writing.</td>
+      <td><code>Program.Main()</code></td>
+    </tr>
+    <tr>
+      <td><code>Models.cs</code></td>
+      <td>Plain data classes shared across all modules.</td>
+      <td><code>EpubReport</code>, <code>IssueEntry</code></td>
+    </tr>
+    <tr>
+      <td><code>RulesLoader.cs</code></td>
+      <td>Reads <code>rules.txt</code>, filters the <code>TESTS</code> list, writes a template file when none exists.</td>
+      <td><code>RulesLoader.Load()</code>, <code>WriteTestsList()</code></td>
+    </tr>
+    <tr>
+      <td><code>Tests.cs</code></td>
+      <td>Defines all validation rules as <code>TestRule</code> objects with LINQ-based checker lambdas.</td>
+      <td><code>TestRule</code>, <code>Tests.TESTS</code></td>
+    </tr>
+    <tr>
+      <td><code>EpubValidator.cs</code></td>
+      <td>Opens a single ZIP entry, parses XML, runs each active rule, and builds <code>IssueEntry</code> objects.</td>
+      <td><code>EpubValidator.ValidateEntry()</code></td>
+    </tr>
+    <tr>
+      <td><code>XmlHelpers.cs</code></td>
+      <td>Utility methods for XML serialization, whitespace handling, and offset-to-line mapping.</td>
+      <td><code>SafeOuterXml()</code>, <code>GetContextFromParent()</code>, <code>TruncateCollapseWhitespace()</code>, <code>IndexOfNormalized()</code>, <code>GetLineColumnFromOffset()</code></td>
+    </tr>
+    <tr>
+      <td><code>HtmlReportWriter.cs</code></td>
+      <td>Generates a self-contained HTML summary page from an <code>EpubReport</code>.</td>
+      <td><code>WriteHtmlSummary()</code>, <code>MakeSafeFileName()</code>, <code>HtmlEscape()</code></td>
+    </tr>
+  </table>
+
+  <!-- ═══════════════════════════════════ DATA MODELS ═══════════════════════════════════ -->
+  <h2>3. Data Models</h2>
+  <div class="box">
+    <h3>EpubReport</h3>
+    <p>Top-level result for one EPUB file.</p>
+    <table>
+      <tr><th>Property</th><th>Type</th><th>Description</th></tr>
+      <tr><td><code>FileName</code></td><td>string</td><td>Bare file name, e.g. <code>book.epub</code></td></tr>
+      <tr><td><code>FilePath</code></td><td>string</td><td>Full file system path to the EPUB</td></tr>
+      <tr><td><code>Issues</code></td><td>List&lt;IssueEntry&gt;</td><td>All issues found across every entry in this EPUB</td></tr>
+    </table>
+  </div>
+  <div class="box">
+    <h3>IssueEntry</h3>
+    <p>A single validation finding within one EPUB entry.</p>
+    <table>
+      <tr><th>Property</th><th>Type</th><th>Description</th></tr>
+      <tr><td><code>EntryPath</code></td><td>string</td><td>ZIP-relative path of the entry (e.g. <code>OEBPS/chapter1.xhtml</code>)</td></tr>
+      <tr><td><code>TestId</code></td><td>string</td><td>Rule identifier, e.g. <code>math-wrong-number-of-children-2</code></td></tr>
+      <tr><td><code>TestDesc</code></td><td>string</td><td>Human-readable description of the violated rule</td></tr>
+      <tr><td><code>Snippet</code></td><td>string</td><td>Surrounding XML context (up to 800 chars, whitespace-collapsed)</td></tr>
+      <tr><td><code>ExactNode</code></td><td>string</td><td>Serialized XML of the offending element (up to 600 chars)</td></tr>
+      <tr><td><code>Line</code></td><td>int</td><td>1-based line number within the entry file</td></tr>
+      <tr><td><code>Column</code></td><td>int</td><td>1-based column number within the entry file</td></tr>
+    </table>
+  </div>
+
+  <!-- ═══════════════════════════════════ FLOWCHART ═══════════════════════════════════ -->
+  <h2>4. Application Flow</h2>
+  <div class="flowchart-wrapper">
+    <svg viewBox="0 0 900 1420" width="100%" xmlns="http://www.w3.org/2000/svg" font-family="'Segoe UI', Arial, sans-serif" font-size="13">
+      <defs>
+        <marker id="arr" markerWidth="10" markerHeight="7" refX="10" refY="3.5" orient="auto">
+          <polygon points="0 0, 10 3.5, 0 7" fill="#555"/>
+        </marker>
+        <marker id="arrG" markerWidth="10" markerHeight="7" refX="10" refY="3.5" orient="auto">
+          <polygon points="0 0, 10 3.5, 0 7" fill="#31473A"/>
+        </marker>
+      </defs>
+
+      <!-- START -->
+      <ellipse cx="450" cy="38" rx="90" ry="24" fill="#31473A"/>
+      <text x="450" y="43" text-anchor="middle" fill="#EDF4F2" font-weight="bold">START</text>
+
+      <!-- Arrow -->
+      <line x1="450" y1="62" x2="450" y2="85" stroke="#555" stroke-width="2" marker-end="url(#arr)"/>
+
+      <!-- Load rules.txt -->
+      <rect x="290" y="86" width="320" height="46" rx="8" fill="#31473A"/>
+      <text x="450" y="107" text-anchor="middle" fill="#EDF4F2" font-weight="bold">RulesLoader.Load()</text>
+      <text x="450" y="123" text-anchor="middle" fill="#cfeadc" font-size="11">Read rules.txt → filter TESTS list</text>
+
+      <line x1="450" y1="132" x2="450" y2="155" stroke="#555" stroke-width="2" marker-end="url(#arr)"/>
+
+      <!-- Decision: rules.txt exists? -->
+      <polygon points="450,156 590,186 450,216 310,186" fill="#e8f4ec" stroke="#31473A" stroke-width="2"/>
+      <text x="450" y="182" text-anchor="middle" fill="#1a3a2a" font-weight="bold">rules.txt exists?</text>
+      <text x="450" y="198" text-anchor="middle" fill="#444" font-size="11">and has matching IDs?</text>
+
+      <!-- Yes path -->
+      <line x1="590" y1="186" x2="680" y2="186" stroke="#555" stroke-width="2" marker-end="url(#arr)"/>
+      <text x="637" y="178" text-anchor="middle" fill="#555" font-size="11">YES</text>
+      <rect x="682" y="168" width="130" height="36" rx="6" fill="#d0e8d8" stroke="#31473A"/>
+      <text x="747" y="182" text-anchor="middle" fill="#1a3a2a" font-size="11" font-weight="bold">Use selected</text>
+      <text x="747" y="196" text-anchor="middle" fill="#1a3a2a" font-size="11">test rules only</text>
+
+      <!-- No path -->
+      <line x1="310" y1="186" x2="220" y2="186" stroke="#555" stroke-width="2" marker-end="url(#arr)"/>
+      <text x="263" y="178" text-anchor="middle" fill="#555" font-size="11">NO</text>
+      <rect x="90" y="168" width="128" height="36" rx="6" fill="#fff0e8" stroke="#e07b39"/>
+      <text x="154" y="182" text-anchor="middle" fill="#7a3010" font-size="11" font-weight="bold">Use ALL tests</text>
+      <text x="154" y="196" text-anchor="middle" fill="#7a3010" font-size="11">+ write template</text>
+
+      <!-- Merge back -->
+      <line x1="747" y1="204" x2="747" y2="240" stroke="#555" stroke-width="2"/>
+      <line x1="154" y1="204" x2="154" y2="240" stroke="#555" stroke-width="2"/>
+      <line x1="154" y1="240" x2="747" y2="240" stroke="#555" stroke-width="2"/>
+      <line x1="450" y1="240" x2="450" y2="264" stroke="#555" stroke-width="2" marker-end="url(#arr)"/>
+
+      <!-- Check input folder -->
+      <rect x="290" y="264" width="320" height="46" rx="8" fill="#31473A"/>
+      <text x="450" y="284" text-anchor="middle" fill="#EDF4F2" font-weight="bold">Check inputFolder exists</text>
+      <text x="450" y="300" text-anchor="middle" fill="#cfeadc" font-size="11">C:\mathml_validator</text>
+
+      <line x1="450" y1="310" x2="450" y2="333" stroke="#555" stroke-width="2" marker-end="url(#arr)"/>
+
+      <!-- Decision: folder exists? -->
+      <polygon points="450,334 570,357 450,380 330,357" fill="#e8f4ec" stroke="#31473A" stroke-width="2"/>
+      <text x="450" y="353" text-anchor="middle" fill="#1a3a2a" font-weight="bold">Folder exists?</text>
+      <text x="450" y="368" text-anchor="middle" fill="#444" font-size="11">and .epub files found?</text>
+
+      <!-- Exit 2 -->
+      <line x1="570" y1="357" x2="680" y2="357" stroke="#e05050" stroke-width="2" marker-end="url(#arr)"/>
+      <text x="625" y="349" text-anchor="middle" fill="#e05050" font-size="11">NO</text>
+      <rect x="682" y="339" width="110" height="36" rx="6" fill="#fde8e8" stroke="#e05050"/>
+      <text x="737" y="357" text-anchor="middle" fill="#900" font-size="11" font-weight="bold">Exit (code 2)</text>
+
+      <line x1="330" y1="357" x2="450" y2="357" stroke="#555" stroke-width="0"/>
+      <line x1="450" y1="380" x2="450" y2="404" stroke="#555" stroke-width="2" marker-end="url(#arr)"/>
+
+      <!-- For each EPUB loop -->
+      <rect x="230" y="404" width="440" height="46" rx="8" fill="#1a3a2a"/>
+      <text x="450" y="426" text-anchor="middle" fill="#EDF4F2" font-weight="bold">FOR EACH .epub file</text>
+      <text x="450" y="442" text-anchor="middle" fill="#cfeadc" font-size="11">Directory.EnumerateFiles(*.epub, recursive)</text>
+
+      <line x1="450" y1="450" x2="450" y2="473" stroke="#555" stroke-width="2" marker-end="url(#arr)"/>
+
+      <!-- HTML exists? -->
+      <polygon points="450,474 600,500 450,526 300,500" fill="#e8f4ec" stroke="#31473A" stroke-width="2"/>
+      <text x="450" y="495" text-anchor="middle" fill="#1a3a2a" font-weight="bold">HTML summary</text>
+      <text x="450" y="511" text-anchor="middle" fill="#1a3a2a" font-weight="bold">already exists?</text>
+
+      <line x1="600" y1="500" x2="700" y2="500" stroke="#888" stroke-width="2" marker-end="url(#arr)"/>
+      <text x="648" y="492" text-anchor="middle" fill="#555" font-size="11">YES → SKIP</text>
+      <rect x="700" y="484" width="106" height="32" rx="6" fill="#f5f5f5" stroke="#aaa"/>
+      <text x="753" y="504" text-anchor="middle" fill="#555" font-size="11">Next EPUB →</text>
+
+      <line x1="450" y1="526" x2="450" y2="549" stroke="#555" stroke-width="2" marker-end="url(#arr)"/>
+      <text x="476" y="540" fill="#555" font-size="11">NO</text>
+
+      <!-- Open ZIP -->
+      <rect x="290" y="550" width="320" height="46" rx="8" fill="#31473A"/>
+      <text x="450" y="570" text-anchor="middle" fill="#EDF4F2" font-weight="bold">ZipFile.OpenRead(epubPath)</text>
+      <text x="450" y="586" text-anchor="middle" fill="#cfeadc" font-size="11">Filter entries: .xhtml / .html / .xml</text>
+
+      <line x1="450" y1="596" x2="450" y2="619" stroke="#555" stroke-width="2" marker-end="url(#arr)"/>
+
+      <!-- For each entry loop -->
+      <rect x="245" y="620" width="410" height="46" rx="8" fill="#1a3a2a"/>
+      <text x="450" y="641" text-anchor="middle" fill="#EDF4F2" font-weight="bold">FOR EACH qualifying entry</text>
+      <text x="450" y="657" text-anchor="middle" fill="#cfeadc" font-size="11">EpubValidator.ValidateEntry(entry, activeTests)</text>
+
+      <line x1="450" y1="666" x2="450" y2="689" stroke="#555" stroke-width="2" marker-end="url(#arr)"/>
+
+      <!-- Pre-check -->
+      <rect x="290" y="690" width="320" height="46" rx="8" fill="#3a82c4"/>
+      <text x="450" y="710" text-anchor="middle" fill="#fff" font-weight="bold">Pre-check: contains &lt;math&gt;?</text>
+      <text x="450" y="726" text-anchor="middle" fill="#d0e8ff" font-size="11">If no MathML → return empty list</text>
+
+      <line x1="450" y1="736" x2="450" y2="759" stroke="#555" stroke-width="2" marker-end="url(#arr)"/>
+
+      <!-- Parse XML -->
+      <rect x="290" y="760" width="320" height="46" rx="8" fill="#3a82c4"/>
+      <text x="450" y="780" text-anchor="middle" fill="#fff" font-weight="bold">XDocument.Load()</text>
+      <text x="450" y="796" text-anchor="middle" fill="#d0e8ff" font-size="11">DtdProcessing.Ignore | SetLineInfo</text>
+
+      <line x1="450" y1="806" x2="450" y2="829" stroke="#555" stroke-width="2" marker-end="url(#arr)"/>
+
+      <!-- For each rule -->
+      <rect x="245" y="830" width="410" height="46" rx="8" fill="#1a3a2a"/>
+      <text x="450" y="851" text-anchor="middle" fill="#EDF4F2" font-weight="bold">FOR EACH activeTest rule</text>
+      <text x="450" y="867" text-anchor="middle" fill="#cfeadc" font-size="11">rule.Checker(doc) → IEnumerable&lt;XElement&gt;</text>
+
+      <line x1="450" y1="876" x2="450" y2="899" stroke="#555" stroke-width="2" marker-end="url(#arr)"/>
+
+      <!-- Context wrapper? -->
+      <polygon points="450,900 600,924 450,948 300,924" fill="#e8f4ec" stroke="#31473A" stroke-width="2"/>
+      <text x="450" y="918" text-anchor="middle" fill="#1a3a2a" font-weight="bold">Element is</text>
+      <text x="450" y="934" text-anchor="middle" fill="#1a3a2a" font-weight="bold">&lt;Context&gt; wrapper?</text>
+
+      <!-- Yes → Context path -->
+      <line x1="600" y1="924" x2="700" y2="924" stroke="#555" stroke-width="2" marker-end="url(#arr)"/>
+      <text x="648" y="915" text-anchor="middle" fill="#555" font-size="11">YES</text>
+      <rect x="700" y="905" width="140" height="40" rx="6" fill="#d0e8d8" stroke="#31473A"/>
+      <text x="770" y="921" text-anchor="middle" fill="#1a3a2a" font-size="10.5" font-weight="bold">Extract Snippet,</text>
+      <text x="770" y="935" text-anchor="middle" fill="#1a3a2a" font-size="10.5">ExactNode, line/col</text>
+
+      <!-- No → old behavior -->
+      <line x1="300" y1="924" x2="200" y2="924" stroke="#555" stroke-width="2" marker-end="url(#arr)"/>
+      <text x="248" y="915" text-anchor="middle" fill="#555" font-size="11">NO</text>
+      <rect x="60" y="905" width="138" height="40" rx="6" fill="#fff0e8" stroke="#e07b39"/>
+      <text x="129" y="921" text-anchor="middle" fill="#7a3010" font-size="10.5" font-weight="bold">SafeOuterXml +</text>
+      <text x="129" y="935" text-anchor="middle" fill="#7a3010" font-size="10.5">IXmlLineInfo fallback</text>
+
+      <!-- Merge -->
+      <line x1="770" y1="945" x2="770" y2="975" stroke="#555" stroke-width="2"/>
+      <line x1="129" y1="945" x2="129" y2="975" stroke="#555" stroke-width="2"/>
+      <line x1="129" y1="975" x2="770" y2="975" stroke="#555" stroke-width="2"/>
+      <line x1="450" y1="975" x2="450" y2="999" stroke="#555" stroke-width="2" marker-end="url(#arr)"/>
+
+      <!-- Add IssueEntry -->
+      <rect x="290" y="1000" width="320" height="46" rx="8" fill="#31473A"/>
+      <text x="450" y="1021" text-anchor="middle" fill="#EDF4F2" font-weight="bold">Add IssueEntry to report</text>
+      <text x="450" y="1037" text-anchor="middle" fill="#cfeadc" font-size="11">EntryPath, TestId, Snippet, ExactNode, Line, Col</text>
+
+      <!-- Loop back arrows (rules) -->
+      <line x1="450" y1="1046" x2="450" y2="1064" stroke="#888" stroke-width="1.5"/>
+      <line x1="450" y1="1064" x2="840" y2="1064" stroke="#888" stroke-width="1.5"/>
+      <line x1="840" y1="1064" x2="840" y2="848" stroke="#888" stroke-width="1.5"/>
+      <line x1="840" y1="848" x2="657" y2="848" stroke="#888" stroke-width="1.5" marker-end="url(#arr)"/>
+      <text x="848" y="960" fill="#888" font-size="10" transform="rotate(90,848,960)">next rule</text>
+
+      <!-- Write reports -->
+      <line x1="450" y1="1046" x2="450" y2="1090" stroke="#555" stroke-width="2" marker-end="url(#arr)"/>
+
+      <rect x="230" y="1092" width="440" height="46" rx="8" fill="#31473A"/>
+      <text x="450" y="1112" text-anchor="middle" fill="#EDF4F2" font-weight="bold">Write Reports</text>
+      <text x="450" y="1128" text-anchor="middle" fill="#cfeadc" font-size="11">JsonSerializer → .json | HtmlReportWriter → .html</text>
+
+      <line x1="450" y1="1138" x2="450" y2="1161" stroke="#555" stroke-width="2" marker-end="url(#arr)"/>
+
+      <!-- Next EPUB loop -->
+      <line x1="450" y1="1161" x2="860" y2="1161" stroke="#888" stroke-width="1.5"/>
+      <line x1="860" y1="1161" x2="860" y2="422" stroke="#888" stroke-width="1.5"/>
+      <line x1="860" y1="422" x2="672" y2="422" stroke="#888" stroke-width="1.5" marker-end="url(#arr)"/>
+      <text x="868" y="800" fill="#888" font-size="10" transform="rotate(90,868,800)">next EPUB</text>
+
+      <!-- END -->
+      <line x1="450" y1="1161" x2="450" y2="1185" stroke="#555" stroke-width="2" marker-end="url(#arr)"/>
+      <ellipse cx="450" cy="1205" rx="90" ry="26" fill="#31473A"/>
+      <text x="450" y="1209" text-anchor="middle" fill="#EDF4F2" font-weight="bold">END</text>
+      <text x="450" y="1223" text-anchor="middle" fill="#cfeadc" font-size="10">"All done." — exit 0</text>
+
+    </svg>
+  </div>
+
+  <!-- ═══════════════════════════════════ VALIDATION PIPELINE ═══════════════════════════════════ -->
+  <h2>5. Validation Pipeline Detail</h2>
+
+  <h3>5.1 Entry Pre-checks</h3>
+  <p>Before any XML parsing, <code>EpubValidator.ValidateEntry()</code> performs a fast string scan:</p>
+  <ul>
+    <li>If the content contains neither <code>&lt;math</code> nor the MathML namespace URI, the entry is skipped immediately.</li>
+    <li>If XML parsing fails, an <code>entry-parse-error</code> issue is recorded and the entry processing stops.</li>
+  </ul>
+
+  <h3>5.2 Rule Return Contract</h3>
+  <p>Each <code>TestRule.Checker</code> receives the full <code>XDocument</code> and returns an <code>IEnumerable&lt;XElement&gt;</code>. There are two recognised shapes:</p>
+  <table>
+    <tr><th>Shape</th><th>When to use</th><th>How processed</th></tr>
+    <tr>
+      <td><code>&lt;Context&gt;</code> wrapper element</td>
+      <td>When the rule can provide richer context: a parent <code>&lt;Snippet&gt;</code> element and a child <code>&lt;ExactNode&gt;</code> element, plus optional <code>line</code>/<code>column</code> attributes.</td>
+      <td>Snippet and ExactNode children are extracted; a windowed substring around ExactNode is computed for the snippet display.</td>
+    </tr>
+    <tr>
+      <td>Raw <code>XElement</code></td>
+      <td>Simple rules that return the offending element directly.</td>
+      <td><code>SafeOuterXml()</code> is called; line/col is sourced from <code>IXmlLineInfo</code> or computed via <code>IndexOfNormalized()</code>.</td>
+    </tr>
+  </table>
+
+  <h3>5.3 Snippet Generation</h3>
+  <div class="df">
+    <div class="df-box">Rule returns XElement</div><div class="df-arrow">→</div>
+    <div class="df-box">Extract outer XML</div><div class="df-arrow">→</div>
+    <div class="df-box">Find in parent</div><div class="df-arrow">→</div>
+    <div class="df-box">Window ±50 chars</div><div class="df-arrow">→</div>
+    <div class="df-box">Collapse whitespace</div><div class="df-arrow">→</div>
+    <div class="df-box">Truncate @ 800</div>
+  </div>
+
+  <!-- ═══════════════════════════════════ RULES ═══════════════════════════════════ -->
+  <h2>6. Validation Rules Catalogue</h2>
+  <p>Rules live in <code>Tests.cs</code> as <code>TestRule</code> objects inside the static <code>TESTS</code> list. New rules can be added by appending to this list.</p>
+
+  <div class="rule-list">
+    <div class="rule">
+      <span class="rid">math-wrong-number-of-children-2</span>
+      <div class="rdesc"><strong>Wrong number of children — expects exactly 2.</strong><br/>
+      Targets elements: <code>mfrac</code>, <code>msup</code>, <code>msub</code>, <code>mroot</code>, <code>mover</code>, <code>munder</code>.<br/>
+      Flags any <code>&lt;math&gt;</code> element whose subtree contains one of these operators with only <em>one</em> child element instead of two.</div>
+    </div>
+    <div class="rule">
+      <span class="rid">math-wrong-number-of-children-3</span>
+      <div class="rdesc"><strong>Wrong number of children — expects exactly 3.</strong><br/>
+      Targets elements: <code>munderover</code>, <code>msubsup</code>.<br/>
+      Flags any <code>&lt;math&gt;</code> element whose subtree contains one of these operators with fewer than <em>three</em> child elements.</div>
+    </div>
+  </div>
+
+  <div class="box info">
+    <h3>Adding a New Rule</h3>
+    <p>Append a new <code>TestRule</code> to <code>Tests.TESTS</code> in <code>Tests.cs</code>:</p>
+    <pre><code>new TestRule {
+    Id = "math-my-new-rule",
+    Description = "Human-readable description of what is wrong.",
+    Checker = doc => {
+        XNamespace m = "http://www.w3.org/1998/Math/MathML";
+        return doc.Descendants()
+                  .Where(e => e.Name.LocalName == "math")
+                  .Where(math => /* your condition */);
+    }
+},</code></pre>
+    <p>Then add the rule ID to <code>rules.txt</code> to activate it, or delete <code>rules.txt</code> to run all rules.</p>
+  </div>
+
+  <!-- ═══════════════════════════════════ RULES.TXT ═══════════════════════════════════ -->
+  <h2>7. rules.txt Configuration</h2>
+  <table>
+    <tr><th>Scenario</th><th>Behaviour</th></tr>
+    <tr><td>File does not exist</td><td>All tests run; a template <code>rules.txt</code> is written listing every available rule ID and description.</td></tr>
+    <tr><td>File is empty</td><td>All tests run.</td></tr>
+    <tr><td>File has IDs, none match</td><td>Warning printed; all tests run.</td></tr>
+    <tr><td>File has matching IDs</td><td>Only those rules run.</td></tr>
+    <tr><td>Lines starting with <code>#</code></td><td>Treated as comments and ignored.</td></tr>
+  </table>
+
+  <pre><code># rules.txt example
+# Only run these two checks:
+math-wrong-number-of-children-2
+math-wrong-number-of-children-3</code></pre>
+
+  <!-- ═══════════════════════════════════ OUTPUT ═══════════════════════════════════ -->
+  <h2>8. Output Files</h2>
+
+  <h3>JSON Report (<code>report/json/&lt;name&gt;.report.json</code>)</h3>
+  <pre><code>{
+  "FileName": "book.epub",
+  "FilePath": "C:\\mathml_validator\\book.epub",
+  "Issues": [
+    {
+      "EntryPath": "OEBPS/chapter1.xhtml",
+      "TestId": "math-wrong-number-of-children-2",
+      "TestDesc": "Wrong number of children. There should be two children.",
+      "Snippet": "&lt;math&gt;&lt;mfrac&gt;&lt;mn&gt;1&lt;/mn&gt;&lt;/mfrac&gt;&lt;/math&gt;",
+      "ExactNode": "&lt;mfrac&gt;&lt;mn&gt;1&lt;/mn&gt;&lt;/mfrac&gt;",
+      "Line": 42,
+      "Column": 8
+    }
+  ]
+}</code></pre>
+
+  <h3>HTML Summary (<code>report/html/&lt;name&gt;_summary.html</code>)</h3>
+  <ul>
+    <li>Self-contained HTML with embedded CSS — no external dependencies.</li>
+    <li>Issues grouped by <strong>rule ID</strong>, showing occurrence count in the header.</li>
+    <li>Each occurrence shows: entry path, line/column, a collapsible code snippet, and the exact offending node highlighted in a red border.</li>
+    <li><code>xmlns</code> declarations are stripped from snippets to reduce visual clutter.</li>
+  </ul>
+
+  <!-- ═══════════════════════════════════ XMLHELPERS ═══════════════════════════════════ -->
+  <h2>9. XmlHelpers Reference</h2>
+  <table>
+    <tr><th>Method</th><th>Signature</th><th>Purpose</th></tr>
+    <tr>
+      <td><code>SafeOuterXml</code></td>
+      <td><code>(XElement el, int maxLen=600) → string</code></td>
+      <td>Serializes an element to a compact single-line string; returns <code>""</code> safely on null/exception.</td>
+    </tr>
+    <tr>
+      <td><code>GetContextFromParent</code></td>
+      <td><code>(XElement parent, string childOuter) → string</code></td>
+      <td>Returns a windowed substring of the parent XML centered on the child element; falls back gracefully.</td>
+    </tr>
+    <tr>
+      <td><code>TruncateCollapseWhitespace</code></td>
+      <td><code>(string s, int max=600) → string</code></td>
+      <td>Collapses whitespace runs to single spaces, truncates to <code>max</code> chars, appends <code>…</code> if cut.</td>
+    </tr>
+    <tr>
+      <td><code>IndexOfNormalized</code></td>
+      <td><code>(string haystack, string needle) → int</code></td>
+      <td>Finds needle in haystack after normalising all whitespace in both strings.</td>
+    </tr>
+    <tr>
+      <td><code>GetLineColumnFromOffset</code></td>
+      <td><code>(string text, int offset, out int line, out int col)</code></td>
+      <td>Converts a character offset into 1-based line and column numbers by scanning lines.</td>
+    </tr>
+  </table>
+
+  <!-- ═══════════════════════════════════ FOLDER STRUCTURE ═══════════════════════════════════ -->
+  <h2>10. Folder Structure</h2>
+  <pre><code>C:\mathml_validator\
+├── rules.txt                  ← optional rule filter (auto-generated if missing)
+├── book1.epub
+├── book2.epub
+└── report\
+    ├── json\
+    │   ├── book1.report.json
+    │   └── book2.report.json
+    └── html\
+        ├── book1_summary.html
+        └── book2_summary.html</code></pre>
+
+  <div class="box warn">
+    <strong>⚠️ Re-run behaviour:</strong> If a <code>_summary.html</code> file already exists for an EPUB, that EPUB is <strong>skipped</strong> on the next run. Delete the HTML file to force re-validation.
+  </div>
+
+  <hr/>
+  <p style="color:#888; font-size:0.82rem; text-align:center;">MathML Validator — Technical Documentation · Generated March 2026</p>
+</div>
+</body>
+</html>
