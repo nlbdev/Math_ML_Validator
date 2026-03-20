@@ -1,0 +1,104 @@
+﻿# Units and prefixes
+
+## SI units. Can be used with SI prefixes
+
+- A: ampere / amp
+- cd: candela
+- K: kelvin
+- K (Unicode: U+212A): kelvin
+- g: gram
+- m: meter / metre
+- mol: mol / mole
+- s: sekund / second
+- sek (only Norwegian): sekund
+- sec (only English): second
+- Bq: becquerel
+- C: coulomb
+- °C (Unicode: U+00B0 + C): grad celsius / degree celsius
+- ℃ (Unicode: U+2103): grad celsius / degree celsius
+- F: farad
+- Gy: gray
+- H: henry
+- Hz: hertz
+- J: joule
+- kat: katal / kattel
+- lm: lumen
+- lx: lux
+- N: newton
+- Ω (Unicode: U+03A9): ohm
+- Ω (Unicode: U+2126): ohm
+- Pa: pascal
+- S: siemens
+- Sv: sievert
+- T: tesla
+- V: volt
+- W: watt
+- Wb: weber
+- l: liter / litre
+- L: liter / litre
+- ℓ (Unicode U+2113): liter / litre
+- t: tonn / metric ton
+- u: atommasseenhet / atomic mass unit
+- Da: dalton
+- Np: neper
+- eV: elektronvolt / electronvolt
+- rad: radian
+- sr: steradian / sterradion
+- as: buesekund / arcsecond
+- b: bit
+- B: byte
+
+## Other units
+
+- min: minutt / minute
+- h: time / hour
+- hr: time / hour
+- Hr: time / hour
+- ° (Unicode U+00B0): grad / degree
+- arcmin: bueminutt / arcminute
+- am: bueminutt / arcminute
+- arcsec: buesekund / arcsecond
+- au: astronomisk enhet / astronomical unit
+- AU: astronomisk enhet / astronomical unit
+- ly: lysår / light year
+- pc: parsec
+- Å: ångstrøm / angstrom
+- Å (Unicode: U+212B): ångstrøm / angstrom
+- ha: hektar / hectare
+- dB: desibel / decibel
+- bar: bar
+- cal: kalori / calorie
+- in: tomme / inch
+- ft: fot / foot
+- mi: mile
+- hp: hestekraft / horsepower
+- hk (only Norwegian): hestekraft
+- °F (Unicode: U+00B0 + F): grad fahrenheit / degree fahrenheit
+- ℉ (Unicode: U+2109): grad fahrenheit / degree fahrenheit
+
+## SI prefixes
+
+- Q: quetta
+- R: ronna
+- Y: yotta
+- Z: zetta
+- E: exa
+- P: peta
+- T: tera
+- G: giga
+- M: mega
+- k: kilo
+- h: hekto / hecto
+- da: deka
+- d: desi / deci
+- c: centi
+- m: milli
+- µ (Unicode: U+00B5): mikro / micro
+- n: nano
+- p: piko / pico
+- f: femto
+- a: atto
+- z: zepto
+- y: yokto / yocto
+- r: ronto
+- q: quecto
