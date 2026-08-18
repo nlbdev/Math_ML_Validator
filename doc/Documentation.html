@@ -85,6 +85,7 @@
   <h3>Key Design Decisions</h3>
   <ul>
     <li>Rules are <strong>externally configurable</strong> via <code>rules.txt</code> — no recompilation needed to change which tests run.</li>
+    <li>Each rule can be <strong>tagged</strong> with a <code>Library</code>, <code>Language</code> and <code>MathML_version</code>, so a run can be narrowed to one target audience through <code>settings.txt</code>.</li>
     <li>A quick <strong>pre-check</strong> skips any EPUB entry that contains no MathML markup, avoiding unnecessary XML parsing.</li>
     <li>If a summary HTML for an EPUB already exists, that file is <strong>skipped</strong> to avoid redundant processing.</li>
     <li>Errors at any level (ZIP open, entry parse, rule execution) are <strong>captured as issue entries</strong> rather than crashing the run.</li>
@@ -107,12 +108,12 @@
     </tr>
     <tr>
       <td><code>RulesLoader.cs</code></td>
-      <td>Reads <code>rules.txt</code>, filters the <code>TESTS</code> list, writes a template file when none exists.</td>
-      <td><code>RulesLoader.Load()</code>, <code>WriteTestsList()</code></td>
+      <td>Reads <code>rules.txt</code> and <code>settings.txt</code>, filters the <code>TESTS</code> list by rule ID and by library / language / MathML version, writes template files when none exist.</td>
+      <td><code>RulesLoader.Load()</code>, <code>Filter()</code>, <code>LoadFilterSettings()</code>, <code>WriteTestsList()</code></td>
     </tr>
     <tr>
       <td><code>Tests.cs</code></td>
-      <td>Defines all validation rules as <code>TestRule</code> objects with LINQ-based checker lambdas.</td>
+      <td>Defines all validation rules as <code>TestRule</code> objects with LINQ-based checker lambdas, each with optional <code>Library</code> / <code>Language</code> / <code>MathML_version</code> tags.</td>
       <td><code>TestRule</code>, <code>Tests.TESTS</code></td>
     </tr>
     <tr>
@@ -158,6 +159,20 @@
       <tr><td><code>Column</code></td><td>int</td><td>1-based column number within the entry file</td></tr>
     </table>
   </div>
+  <div class="box">
+    <h3>TestRule</h3>
+    <p>One validation rule, defined in <code>Tests.cs</code>. The three optional tags decide whether the rule takes part in a filtered run.</p>
+    <table>
+      <tr><th>Property</th><th>Type</th><th>Description</th></tr>
+      <tr><td><code>Id</code></td><td>string</td><td>Unique rule identifier, used in <code>rules.txt</code></td></tr>
+      <tr><td><code>Description</code></td><td>string</td><td>Human-readable description, shown in the reports</td></tr>
+      <tr><td><code>Library</code></td><td>string</td><td><em>Optional.</em> Library the rule belongs to, e.g. <code>tibi</code>. Empty = generic rule</td></tr>
+      <tr><td><code>Language</code></td><td>string</td><td><em>Optional.</em> Language the rule applies to, e.g. <code>no</code>. Empty = generic rule</td></tr>
+      <tr><td><code>MathML_version</code></td><td>string</td><td><em>Optional.</em> MathML version the rule applies to, e.g. <code>MathML3</code>. Empty = generic rule</td></tr>
+      <tr><td><code>Checker</code></td><td>Func&lt;XDocument, IEnumerable&lt;XElement&gt;&gt;</td><td>Lambda that returns the offending elements</td></tr>
+    </table>
+    <p>Each tag may hold a comma separated list — <code>Library = "tibi,statped"</code> — and is matched case-insensitively.</p>
+  </div>
 
   <!-- ═══════════════════════════════════ FLOWCHART ═══════════════════════════════════ -->
   <h2>4. Application Flow</h2>
@@ -182,7 +197,7 @@
       <!-- Load rules.txt -->
       <rect x="290" y="86" width="320" height="46" rx="8" fill="#31473A"/>
       <text x="450" y="107" text-anchor="middle" fill="#EDF4F2" font-weight="bold">RulesLoader.Load()</text>
-      <text x="450" y="123" text-anchor="middle" fill="#cfeadc" font-size="11">Read rules.txt → filter TESTS list</text>
+      <text x="450" y="123" text-anchor="middle" fill="#cfeadc" font-size="11">Read rules.txt + settings.txt → filter TESTS</text>
 
       <line x1="450" y1="132" x2="450" y2="155" stroke="#555" stroke-width="2" marker-end="url(#arr)"/>
 
@@ -387,6 +402,7 @@
   <!-- ═══════════════════════════════════ RULES ═══════════════════════════════════ -->
   <h2>6. Validation Rules Catalogue</h2>
   <p>Rules live in <code>Tests.cs</code> as <code>TestRule</code> objects inside the static <code>TESTS</code> list. New rules can be added by appending to this list.</p>
+  <p>A rule with no <code>Library</code> / <code>Language</code> / <code>MathML_version</code> tag is <strong>generic</strong> and runs under every filter; a tagged rule only runs when the filter matches (or when no filter is set). See section 7.</p>
 
   <div class="rule-list">
     <div class="rule">
@@ -399,7 +415,8 @@
       <span class="rid">math-wrong-number-of-children-3</span>
       <div class="rdesc"><strong>Wrong number of children — expects exactly 3.</strong><br/>
       Targets elements: <code>munderover</code>, <code>msubsup</code>.<br/>
-      Flags any <code>&lt;math&gt;</code> element whose subtree contains one of these operators with fewer than <em>three</em> child elements.</div>
+      Flags any <code>&lt;math&gt;</code> element whose subtree contains one of these operators with fewer than <em>three</em> child elements.<br/>
+      <em>Tagged:</em> <code>Library = tibi</code>, <code>Language = no</code>, <code>MathML_version = MathML3</code>.</div>
     </div>
   </div>
 
@@ -408,6 +425,9 @@
     <p>Append a new <code>TestRule</code> to <code>Tests.TESTS</code> in <code>Tests.cs</code>:</p>
     <pre><code>new TestRule {
     Id = "math-my-new-rule",
+    Library = "tibi",            // optional — omit for a generic rule
+    Language = "no",             // optional
+    MathML_version = "MathML3",  // optional
     Description = "Human-readable description of what is wrong.",
     Checker = doc => {
         XNamespace m = "http://www.w3.org/1998/Math/MathML";
@@ -416,11 +436,14 @@
                   .Where(math => /* your condition */);
     }
 },</code></pre>
-    <p>Then add the rule ID to <code>rules.txt</code> to activate it, or delete <code>rules.txt</code> to run all rules.</p>
+    <p>Then add the rule ID to <code>rules.txt</code> to activate it, or delete <code>rules.txt</code> to run all rules. The tags are optional — leave them out unless the rule really is specific to one library, language or MathML version.</p>
   </div>
 
   <!-- ═══════════════════════════════════ RULES.TXT ═══════════════════════════════════ -->
-  <h2>7. rules.txt Configuration</h2>
+  <h2>7. rules.txt &amp; settings.txt Configuration</h2>
+  <p>Two independent filters are applied, in this order: first <code>rules.txt</code> selects rules <em>by ID</em>, then <code>settings.txt</code> narrows that selection <em>by tag</em>. Both files are optional and live next to the EPUB files.</p>
+
+  <h3>rules.txt — filter by rule ID</h3>
   <table>
     <tr><th>Scenario</th><th>Behaviour</th></tr>
     <tr><td>File does not exist</td><td>All tests run; a template <code>rules.txt</code> is written listing every available rule ID and description.</td></tr>
@@ -434,6 +457,34 @@
 # Only run these two checks:
 math-wrong-number-of-children-2
 math-wrong-number-of-children-3</code></pre>
+
+  <h3>settings.txt — filter by library / language / MathML version</h3>
+  <p>One <code>key = value</code> per line; <code>#</code> starts a comment. Keys are case-insensitive, and <code>_</code> and <code>-</code> in key names are ignored (<code>mathml_version</code>, <code>mathml-version</code> and <code>mathmlversion</code> all work).</p>
+  <table>
+    <tr><th>Key</th><th>Example</th><th>Effect</th></tr>
+    <tr><td><code>library</code></td><td><code>library = tibi</code></td><td>Only rules tagged <code>tibi</code> (plus untagged rules) run</td></tr>
+    <tr><td><code>language</code></td><td><code>language = no</code></td><td>Only rules tagged <code>no</code> (plus untagged rules) run</td></tr>
+    <tr><td><code>mathml_version</code></td><td><code>mathml_version = MathML3</code></td><td>Only rules tagged <code>MathML3</code> (plus untagged rules) run</td></tr>
+  </table>
+  <table>
+    <tr><th>Scenario</th><th>Behaviour</th></tr>
+    <tr><td>File does not exist</td><td>No tag filtering; a commented-out template <code>settings.txt</code> is written.</td></tr>
+    <tr><td>All keys commented out or empty</td><td>No tag filtering — every active rule runs.</td></tr>
+    <tr><td>One or more keys set</td><td>The keys combine with AND: a rule must match every key that is set.</td></tr>
+    <tr><td>Rule tag is empty</td><td>The rule is generic and survives every filter.</td></tr>
+    <tr><td>No rule matches</td><td>Warning printed; nothing is checked.</td></tr>
+  </table>
+
+  <pre><code># settings.txt example
+# Only run the Norwegian tibi rules written for MathML 3:
+library        = tibi
+language       = no
+mathml_version = MathML3</code></pre>
+
+  <div class="box info">
+    <p>The same values can be set in code instead, via <code>filterLibrary</code>, <code>filterLanguage</code> and <code>filterMathMLVersion</code> in <code>Program.cs</code>; a non-empty value in <code>settings.txt</code> overrides them.</p>
+    <p>To make untagged rules be <em>skipped</em> when a filter is set, instead of treated as generic, set <code>IncludeUntaggedRules = false</code> in <code>RulesLoader.cs</code>.</p>
+  </div>
 
   <!-- ═══════════════════════════════════ OUTPUT ═══════════════════════════════════ -->
   <h2>8. Output Files</h2>
@@ -497,7 +548,8 @@ math-wrong-number-of-children-3</code></pre>
   <!-- ═══════════════════════════════════ FOLDER STRUCTURE ═══════════════════════════════════ -->
   <h2>10. Folder Structure</h2>
   <pre><code>C:\mathml_validator\
-├── rules.txt                  ← optional rule filter (auto-generated if missing)
+├── rules.txt                  ← optional rule-ID filter (auto-generated if missing)
+├── settings.txt               ← optional library / language / MathML version filter (auto-generated if missing)
 ├── book1.epub
 ├── book2.epub
 └── report\
@@ -513,7 +565,7 @@ math-wrong-number-of-children-3</code></pre>
   </div>
 
   <hr/>
-  <p style="color:#888; font-size:0.82rem; text-align:center;">MathML Validator — Technical Documentation · Generated March 2026</p>
+  <p style="color:#888; font-size:0.82rem; text-align:center;">MathML Validator — Technical Documentation · Generated March 2026 · Updated August 2026</p>
 </div>
 </body>
 </html>
