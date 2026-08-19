@@ -20,6 +20,11 @@ namespace Math_ML_Validator
         public string Id { get; init; }
         public string Description { get; init; }
         public Func<XDocument, IEnumerable<XElement>> Checker { get; init; }
+
+        // Optional tags read by RulesLoader when filtering which rules to run.
+        public string? Library { get; init; }
+        public string? Language { get; init; }
+        public string? MathML_version { get; init; }
     }
 
     public static class Tests
