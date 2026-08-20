@@ -1034,22 +1034,6 @@ namespace Math_ML_Validator
 
 
 
-            new TestRule
-            {
-                Id = "math-not-in-p",
-                Description = "Detect <math> elements that are not contained within a <p> element. Every <math> element must be inside a <p> element.",
-                Checker = doc =>
-                {
-                    return doc.Descendants()
-                              .Where(el => el.Name.LocalName == "math")
-                              .Where(math =>
-                              {
-                                  // If any ancestor is a <p>, the math is correctly placed
-                                  return !math.Ancestors().Any(a => string.Equals(a.Name.LocalName, "p", StringComparison.OrdinalIgnoreCase));
-                              });
-                }
-            },
-
             new TestRule {
                 Id = "math-space-mn-mo-mi",
                 Description = "Flag <mn>, <mo>, and <mi> elements that contain specific Unicode space characters (U+2005, U+2003).",

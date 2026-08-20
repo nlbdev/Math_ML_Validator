@@ -210,11 +210,6 @@ Checks for punctuation immediately following a `<math>` element when punctuation
 
 Punctuation right after a `<math>` element needs to be inside the `<math>` element for assisitve technology to parse it correctly.
 
-### math-not-in-p
-
-<!--Should be changed or removed according to what we agreed on in the last MathML meeting-->
-
-Checks for math elements that are not placed inside a p element.
 
 ### math-space-mn-mo-mi
 
