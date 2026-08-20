@@ -499,21 +499,34 @@ namespace Math_ML_Validator
                               // This avoids matching digits that are part of words (e.g., "converges to 0") or unit-like letters embedded in words.
                               if (numberBeforeUnitPattern.IsMatch(txt)) return true;
 
-                              // 3) If the previous sibling is <mn> (a numeric token) and this mtext is a unit token, flag it
-                              var parent = mtext.Parent;
-                              if (parent != null)
+                              // 3) Flag a unit-only <mtext> that a numeric <mn> precedes, either directly
+                              // (<mn>10</mn><mtext>m</mtext>) or separated by the invisible-times operator
+                              // used to mark up the space between a number and a unit
+                              // (<mn>10</mn><mo rspace="0.25em">&#x2062;</mo><mtext>m</mtext>).
+                              if (unitOnlyPattern.IsMatch(txt))
                               {
-                                  var children = parent.Elements().ToList();
-                                  var idx = children.IndexOf(mtext);
-                                  if (idx > 0)
+                                  // Compound units such as m/s are wrapped in an <mrow>, so anchor the
+                                  // sibling walk on that <mrow> when this <mtext> is its first child.
+                                  var anchor = mtext;
+                                  if (mtext.Parent != null &&
+                                      string.Equals(mtext.Parent.Name.LocalName, "mrow", StringComparison.OrdinalIgnoreCase) &&
+                                      mtext.Parent.Elements().FirstOrDefault() == mtext)
                                   {
-                                      var prev = children[idx - 1];
-                                      if (string.Equals(prev.Name.LocalName, "mn", StringComparison.OrdinalIgnoreCase))
-                                      {
-                                          if (unitOnlyPattern.IsMatch(txt))
-                                              return true;
-                                      }
+                                      anchor = mtext.Parent;
                                   }
+
+                                  var prev = anchor.ElementsBeforeSelf().LastOrDefault();
+
+                                  // Step over the invisible-times <mo> marking the space between number and unit
+                                  if (prev != null &&
+                                      string.Equals(prev.Name.LocalName, "mo", StringComparison.OrdinalIgnoreCase) &&
+                                      (prev.Value ?? string.Empty).Trim() == "\u2062")
+                                  {
+                                      prev = prev.ElementsBeforeSelf().LastOrDefault();
+                                  }
+
+                                  if (prev != null && string.Equals(prev.Name.LocalName, "mn", StringComparison.OrdinalIgnoreCase))
+                                      return true;
                               }
 
                               // Otherwise do not flag (covers cases like "converges to 0" and "A0")
@@ -522,10 +535,10 @@ namespace Math_ML_Validator
             }
         },
 
-          
 
 
-          
+
+
 
 
         new TestRule {

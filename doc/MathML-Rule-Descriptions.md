@@ -116,6 +116,11 @@ It detects the following cases:
 
 - number + unit inside the same `<mtext>` element, where the number is immediately before the unit
 - `<mn>` followed immediately by `<mtext>` containing a unit
+- `<mn>` + `<mo rspace="0.25em">&#x2062;</mo>` + `<mtext>` containing a unit
+- `<mn>` + `<mo rspace="0.25em">&#x2062;</mo>` + `<mrow>` whose first child is an `<mtext>` containing a unit (compound units, like m/s, are wrapped in an `<mrow>`)
+
+If there is space between a number and a unit in a book, this space should be marked up with `<mo rspace="0.25em">&#x2062;</mo>`. The invisible times operator between the number and the unit therefore does not stop the rule from flagging the unit.
+
 
 The rule only detects units and prefixed units defined in the file [Units and prefixes](Units_and_prefixes.md). The file contains the most common units and all SI prefixes. Decided to not include all units defined in MathCAT to avoid false positives.
 
