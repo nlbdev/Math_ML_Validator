@@ -47,6 +47,16 @@ class Program
     // Path to the optional rules file that controls which tests are active
     static string rulesFile = Path.Combine(inputFolder, "rules.txt");
 
+    // Path to the optional settings file that can set the library/language/MathML version filter
+    static string settingsFile = Path.Combine(inputFolder, "settings.txt");
+
+    // Optional filters — run only the rules tagged with this Library / Language / MathML version.
+    // null or empty = no filtering (previous behaviour: run every active rule).
+    // Set here in code, or in settings.txt:  library = tibi / language = no / mathml_version = MathML3
+    static string? filterLibrary = null;
+    static string? filterLanguage = null;
+    static string? filterMathMLVersion = null;
+
     /// <summary>
     /// Entry point. Loads optional rules, discovers EPUB files, validates each one,
     /// and writes JSON + HTML reports.
@@ -54,8 +64,11 @@ class Program
     /// <returns>Exit code: 0 = success, 2 = input folder missing</returns>
     static int Main()
     {
-        // Load active test rules from rules.txt (or fall back to all tests)
-        List<TestRule> ActiveTests = RulesLoader.Load(rulesFile, htmlFolder);
+        // Optional settings.txt overrides for the library/language/MathML version filter
+        RulesLoader.LoadFilterSettings(settingsFile, ref filterLibrary, ref filterLanguage, ref filterMathMLVersion);
+
+        // Load active test rules from rules.txt, then keep only those matching the requested filters
+        List<TestRule> ActiveTests = RulesLoader.Load(rulesFile, htmlFolder, filterLibrary, filterLanguage, filterMathMLVersion);
 
         // Verify the input folder exists before proceeding
         if (!Directory.Exists(inputFolder))

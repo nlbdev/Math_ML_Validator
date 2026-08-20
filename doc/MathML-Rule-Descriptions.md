@@ -2,6 +2,36 @@
 
 This document explains, in plain English, what each rule in src/Tests.cs checks for.
 
+## Rule Tags and Filtering
+
+A rule may optionally be tagged with a library, a language and a MathML version:
+
+```csharp
+new TestRule {
+    Id = "math-wrong-number-of-children-3",
+    Library = "tibi",
+    Language = "no",
+    MathML_version = "MathML3",
+    ...
+}
+```
+
+A run can then be narrowed to a given tag by setting `settings.txt` next to the EPUB files:
+
+```
+library        = tibi
+language       = no
+mathml_version = MathML3
+```
+
+Notes:
+
+- Every tag is optional. A rule without tags is generic and runs no matter what the filter says.
+- Each tag may list several values, for example `Library = "tibi,statped"`. Matching is case-insensitive.
+- The keys in `settings.txt` combine with AND: a rule must match every key that is set.
+- If `settings.txt` is missing, or all its keys are empty or commented out, every active rule runs.
+- This filter is applied after the rule ID filter in `rules.txt`, so the two can be combined.
+
 ## Rule Overview
 
 ### math-wrong-number-of-children-2
