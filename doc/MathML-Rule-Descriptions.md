@@ -116,6 +116,10 @@ It detects the following cases:
 
 - number + unit inside the same `<mtext>` element, where the number is immediately before the unit
 - `<mn>` followed immediately by `<mtext>` containing a unit
+- `<mn>` + `<mo rspace="0.25em">&#x2062;</mo>` + `<mtext>` containing a unit
+- `<mn>` + `<mo rspace="0.25em">&#x2062;</mo>` + `<mrow>` whose first child is an `<mtext>` containing a unit (compound units, like m/s, are wrapped in an `<mrow>`)
+
+If there is space between a number and a unit in a book, this space should be marked up with `<mo rspace="0.25em">&#x2062;</mo>`. The invisible times operator between the number and the unit therefore does not stop the rule from flagging the unit.
 
 The rule only detects units and prefixed units defined in the file [Units and prefixes](Units_and_prefixes.md). The file contains the most common units and all SI prefixes. Decided to not include all units defined in MathCAT to avoid false positives.
 
@@ -129,7 +133,13 @@ It detects:
 - Norwegian letters
 - Modern Greek letters
 
-For Norwegian-language documents, the rule excludes the letter "i" in front of sets.
+For Norwegian- and Swedish-language documents, the rule does not flag the letter "i" when it stands directly in front of:
+
+- one of the set symbols ℂ, ℕ, ℚ, ℝ, ℤ
+- an `<msup>` element with one of those symbols in the base (any exponent)
+- an opening delimiter `(`, `{` or `[`
+
+The language is read from the `xml:lang`/`lang` attribute of the document, so a book must be marked as Norwegian (`no`, `nb`, `nn`) or Swedish (`sv`) for these exceptions to apply.
 
 ### math-functions-as-mtext
 
@@ -209,12 +219,6 @@ The rule checks the following cases:
 Checks for punctuation immediately following a `<math>` element when punctuation is outside MathML.
 
 Punctuation right after a `<math>` element needs to be inside the `<math>` element for assisitve technology to parse it correctly.
-
-### math-not-in-p
-
-<!--Should be changed or removed according to what we agreed on in the last MathML meeting-->
-
-Checks for math elements that are not placed inside a p element.
 
 ### math-space-mn-mo-mi
 

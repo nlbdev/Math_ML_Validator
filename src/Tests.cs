@@ -499,21 +499,34 @@ namespace Math_ML_Validator
                               // This avoids matching digits that are part of words (e.g., "converges to 0") or unit-like letters embedded in words.
                               if (numberBeforeUnitPattern.IsMatch(txt)) return true;
 
-                              // 3) If the previous sibling is <mn> (a numeric token) and this mtext is a unit token, flag it
-                              var parent = mtext.Parent;
-                              if (parent != null)
+                              // 3) Flag a unit-only <mtext> that a numeric <mn> precedes, either directly
+                              // (<mn>10</mn><mtext>m</mtext>) or separated by the invisible-times operator
+                              // used to mark up the space between a number and a unit
+                              // (<mn>10</mn><mo rspace="0.25em">&#x2062;</mo><mtext>m</mtext>).
+                              if (unitOnlyPattern.IsMatch(txt))
                               {
-                                  var children = parent.Elements().ToList();
-                                  var idx = children.IndexOf(mtext);
-                                  if (idx > 0)
+                                  // Compound units such as m/s are wrapped in an <mrow>, so anchor the
+                                  // sibling walk on that <mrow> when this <mtext> is its first child.
+                                  var anchor = mtext;
+                                  if (mtext.Parent != null &&
+                                      string.Equals(mtext.Parent.Name.LocalName, "mrow", StringComparison.OrdinalIgnoreCase) &&
+                                      mtext.Parent.Elements().FirstOrDefault() == mtext)
                                   {
-                                      var prev = children[idx - 1];
-                                      if (string.Equals(prev.Name.LocalName, "mn", StringComparison.OrdinalIgnoreCase))
-                                      {
-                                          if (unitOnlyPattern.IsMatch(txt))
-                                              return true;
-                                      }
+                                      anchor = mtext.Parent;
                                   }
+
+                                  var prev = anchor.ElementsBeforeSelf().LastOrDefault();
+
+                                  // Step over the invisible-times <mo> marking the space between number and unit
+                                  if (prev != null &&
+                                      string.Equals(prev.Name.LocalName, "mo", StringComparison.OrdinalIgnoreCase) &&
+                                      (prev.Value ?? string.Empty).Trim() == "\u2062")
+                                  {
+                                      prev = prev.ElementsBeforeSelf().LastOrDefault();
+                                  }
+
+                                  if (prev != null && string.Equals(prev.Name.LocalName, "mn", StringComparison.OrdinalIgnoreCase))
+                                      return true;
                               }
 
                               // Otherwise do not flag (covers cases like "converges to 0" and "A0")
@@ -522,10 +535,10 @@ namespace Math_ML_Validator
             }
         },
 
-          
 
 
-          
+
+
 
 
         new TestRule {
@@ -549,7 +562,7 @@ namespace Math_ML_Validator
                 "Æ","æ","Ø","ø","Å","å"
             };
 
-            bool IsNorwegian(XElement root) {
+            bool IsNorwegianOrSwedish(XElement root) {
                 if (root == null) return false;
                 string GetLang(XElement el) {
                     var a = el.Attribute(xmlNs + "lang") ?? el.Attribute("lang");
@@ -558,7 +571,7 @@ namespace Math_ML_Validator
                 var cand = GetLang(root) ?? root.AncestorsAndSelf().Select(GetLang).FirstOrDefault(v => !string.IsNullOrEmpty(v));
                 if (string.IsNullOrEmpty(cand)) return false;
                 cand = cand.Trim().ToLowerInvariant();
-                return cand.StartsWith("no") || cand.StartsWith("nb") || cand.StartsWith("nn");
+                return cand.StartsWith("no") || cand.StartsWith("nb") || cand.StartsWith("nn") || cand.StartsWith("sv");
             }
 
             // Accept only Basic Latin, explicit Norwegian letters, and the 24 modern Greek letters.
@@ -604,19 +617,19 @@ namespace Math_ML_Validator
                 return null;
             }
 
-            bool docIsNorwegian = IsNorwegian(doc.Root);
+            bool docIsNorwegianOrSwedish = IsNorwegianOrSwedish(doc.Root);
 
             var candidates = doc.Descendants()
                                 .Where(el => string.Equals(el.Name.LocalName, "mtext", StringComparison.OrdinalIgnoreCase));
 
-            if (!docIsNorwegian) {
+            if (!docIsNorwegianOrSwedish) {
                 return candidates.Where(mtext => {
                     string letter;
                     return IsSingleAllowedLetter(mtext, out letter);
                 });
             }
 
-            // Norwegian documents: apply exceptions for <mtext>i</mtext>
+            // Norwegian and Swedish documents: apply exceptions for <mtext>i</mtext>
             return candidates.Where(mtext => {
                 string letter;
                 if (!IsSingleAllowedLetter(mtext, out letter)) return false;
@@ -633,20 +646,12 @@ namespace Math_ML_Validator
                     if (setSymbols.Contains(content)) return false; // do not flag
                 }
 
-                // Exception 2: <msup> with base <mi> being blackboard symbol and exponent <mn> (e.g., 2) or <mi> 'n'
+                // Exception 2: <msup> with base <mi> being one of the blackboard symbols
                 if (string.Equals(next.Name.LocalName, "msup", StringComparison.OrdinalIgnoreCase)) {
-                    var children = next.Elements().ToList();
-                    if (children.Count >= 2) {
-                        var baseElem = children[0];
-                        var expElem = children[1];
-                        if (string.Equals(baseElem.Name.LocalName, "mi", StringComparison.OrdinalIgnoreCase)) {
-                            var baseText = (baseElem.Value ?? string.Empty).Trim();
-                            if (setSymbols.Contains(baseText)) {
-                                if (string.Equals(expElem.Name.LocalName, "mn", StringComparison.OrdinalIgnoreCase)) return false;
-                                if (string.Equals(expElem.Name.LocalName, "mi", StringComparison.OrdinalIgnoreCase) &&
-                                    string.Equals((expElem.Value ?? string.Empty).Trim(), "n", StringComparison.Ordinal)) return false;
-                            }
-                        }
+                    var baseElem = next.Elements().FirstOrDefault();
+                    if (baseElem != null && string.Equals(baseElem.Name.LocalName, "mi", StringComparison.OrdinalIgnoreCase)) {
+                        var baseText = (baseElem.Value ?? string.Empty).Trim();
+                        if (setSymbols.Contains(baseText)) return false; // do not flag, whatever the exponent is
                     }
                 }
 
@@ -1033,22 +1038,6 @@ namespace Math_ML_Validator
         },
 
 
-
-            new TestRule
-            {
-                Id = "math-not-in-p",
-                Description = "Detect <math> elements that are not contained within a <p> element. Every <math> element must be inside a <p> element.",
-                Checker = doc =>
-                {
-                    return doc.Descendants()
-                              .Where(el => el.Name.LocalName == "math")
-                              .Where(math =>
-                              {
-                                  // If any ancestor is a <p>, the math is correctly placed
-                                  return !math.Ancestors().Any(a => string.Equals(a.Name.LocalName, "p", StringComparison.OrdinalIgnoreCase));
-                              });
-                }
-            },
 
             new TestRule {
                 Id = "math-space-mn-mo-mi",
