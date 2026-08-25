@@ -18,6 +18,9 @@ This application scans EPUB files and validates MathML content based on customiz
 5. Run MathML validation rules.
 6. Produce JSON and HTML summary reports.
 
+## Setup
+Instructions on how to download and run the validator can be found here: [How to download and run the validator](https://github.com/nlbdev/Math_ML_Validator/blob/master/doc/build-csharp-from-github.md).
+
 ## Usage
 Place EPUB files inside the folder:
 ```
