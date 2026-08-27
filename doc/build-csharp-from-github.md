@@ -18,6 +18,8 @@ To get the latest version of the validator, you can choose to download the zip-f
 
 ### Option A — Command line
 
+First, move to the folder Math_ML_Validator. Then use the following commands:
+
 ```bash
 dotnet restore   # downloads NuGet packages
 dotnet build     # compiles
