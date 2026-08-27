@@ -887,7 +887,7 @@ namespace Math_ML_Validator
             },
             // ***************** 19 tests above this line ************************
 
-            //******************* 2 extra tests below this line ***********************
+            //******************* 3 extra tests below this line ***********************
 
            
 
@@ -1065,7 +1065,132 @@ namespace Math_ML_Validator
                 }
             },
 
+            new TestRule
+            {
+                Id = "math-units-mathvariant",
+                Description = "This rule checks whether the attribute mathvariant=\"normal\" is missing from the <mi> tag of single-letter units.",
+                Checker = doc =>
+                {
+                    var units = new HashSet<string>
+                    {
+                        // SI units
+                        "K",
+                        "\u212A", // K
+                        "g",
+                        "m",
+                        "s",
+                        "°C",
+                        "\u2103", // ℃
+                        "F",
+                        "H",
+                        "J",
+                        "N",
+                        "\u03A9", // Ω
+                        "\u2126", // Ω
+                        "S",
+                        "T",
+                        "V",
+                        "W",
+                        "l",
+                        "L",
+                        "\u2113", // ℓ
+                        "t",
+                        "u",
+                        // Other units
+                        "h",
+                        "°",
+                        "Å",
+                        "\u212B", // Å
+                        "°F",
+                        "\u2109"  // ℉
+                    };
 
+                    bool IsMi(XElement element) =>
+                        element.Name.LocalName == "mi";
+
+                    bool IsMn(XElement element) =>
+                        element.Name.LocalName == "mn";
+
+                    bool IsUnitMi(XElement element) =>
+                        IsMi(element) &&
+                        units.Contains(element.Value.Trim());
+
+                    bool IsInvisibleTimes(XElement element) =>
+                        element.Name.LocalName == "mo" &&
+                        element.Value.Trim() == "\u2062";
+
+                    bool MissingMathVariantNormal(XElement element) =>
+                        (string?)element.Attribute("mathvariant") != "normal";
+
+                    var result = new HashSet<XElement>();
+
+                    foreach (var number in doc.Descendants().Where(IsMn))
+                    {
+                        var next = number.ElementsAfterSelf().FirstOrDefault();
+
+                        if (next == null) continue;
+
+                        // Case 1:
+                        // <mn>300</mn>
+                        // <mi>g</mi>
+                        if (IsUnitMi(next))
+                        {
+                            if (MissingMathVariantNormal(next)) result.Add(next);
+
+                            continue;
+                        }
+
+                        // Remaining cases require:
+                        // <mn>...</mn>
+                        // <mo>&#x2062;</mo>
+                        // ...
+                        if (!IsInvisibleTimes(next)) continue;
+
+                        var afterTimes = next.ElementsAfterSelf().FirstOrDefault();
+
+                        if (afterTimes == null)
+                            continue;
+
+                        // Case 2:
+                        // <mn>5</mn>
+                        // <mo>&#x2062;</mo>
+                        // <mi>m</mi>
+                        if (IsUnitMi(afterTimes))
+                        {
+                            if (MissingMathVariantNormal(afterTimes))
+                                result.Add(afterTimes);
+                            continue;
+                        }
+
+                        // Case 3 and 4:
+                        // <mn>5</mn>
+                        // <mo>&#x2062;</mo>
+                        // <mrow>...</mrow>
+                        // or
+                        // <mn>10</mn>
+                        // <mo>&#x2062;</mo>
+                        // <mfrac>...</mfrac>
+                        if (afterTimes.Name.LocalName is "mrow" or "mfrac")
+                        {
+                            var firstChild = afterTimes.Elements().FirstOrDefault();
+                            // Only treat the structure as a unit expression
+                            // when its first child is a recognized unit <mi>.
+                            if (firstChild == null || !IsUnitMi(firstChild)) continue;
+
+                            // Once identified as a unit expression,
+                            // check all <mi> descendants.
+                            foreach (var mi in afterTimes
+                                .Descendants()
+                                .Where(IsUnitMi)
+                                .Where(MissingMathVariantNormal))
+                            {
+                                result.Add(mi);
+                            }
+                        }
+                    }
+                    return result;
+                }
+            },
 
         }.ToList();
     }// end class Tests
