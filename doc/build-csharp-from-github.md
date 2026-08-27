@@ -38,6 +38,8 @@ dotnet build MySolution.sln      # target a specific solution
 
 Compiled output lands in `bin/Debug/net8.0/` (or `bin/Release/...`).
 
+Potential warnings can be ignored, as long as the build is successful.
+
 ### Option B — VS Code
 
 1. Install the **C# Dev Kit** extension (Extensions panel, `Ctrl+Shift+X`).
