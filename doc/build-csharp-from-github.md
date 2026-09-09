@@ -12,13 +12,13 @@ Dotnet: You can download it from here: <https://dotnet.microsoft.com/download>. 
 
 ## Step 1: Download or clone the validator
 
-To get the latest version of the validator, you can choose to download the zip-file from GitHub, or pull the latest changes to your cloned version of the repository.
+To get the latest version of the validator, you can choose to [download the zip-file from GitHub](https://github.com/nlbdev/Math_ML_Validator/archive/refs/heads/master.zip), or pull the latest changes to your cloned version of the repository.
 
 ## Step 2: Build the validator
 
 ### Option A — Command line
 
-First, move to the folder Math_ML_Validator. Then use the following commands:
+First, create the folder Math_ML_Validator locally (not in the cloud), if it doesn't already exist. Move into the folder. Then use the following commands:
 
 ```bash
 dotnet restore   # downloads NuGet packages
