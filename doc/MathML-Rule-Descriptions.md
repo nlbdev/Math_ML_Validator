@@ -222,3 +222,7 @@ Punctuation right after a `<math>` element needs to be inside the `<math>` eleme
 ### math-space-mn-mo-mi
 
 Checks for U+2005 (four-per-em-space) or U+2003 (em-space) inside token elements `<mn>`, `<mo>` and `<mi>` elements.
+
+### math-units-mathvariant
+
+Checks whether the attribute `mathvariant="normal"` is missing from the `<mi>` tag of single-letter units.
