@@ -137,7 +137,6 @@ For Norwegian- and Swedish-language documents, the rule does not flag the letter
 
 - one of the set symbols ℂ, ℕ, ℚ, ℝ, ℤ
 - an `<msup>` element with one of those symbols in the base (any exponent)
-- an opening delimiter `(`, `{` or `[`
 
 The language is read from the `xml:lang`/`lang` attribute of the document, so a book must be marked as Norwegian (`no`, `nb`, `nn`) or Swedish (`sv`) for these exceptions to apply.
 
