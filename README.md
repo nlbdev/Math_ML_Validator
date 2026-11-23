@@ -59,3 +59,33 @@ Notes:
 - A rule with no `Library`/`Language`/`MathML_version` is treated as generic and runs for every filter.
   To make untagged rules be skipped when a filter is given, set `IncludeUntaggedRules = false` in `RulesLoader.cs`.
 - The library/language/MathML version filter is applied *after* the `rules.txt` ID filter, so the two can be combined.
+
+## Regression check
+`tools/RegressionCheck` is a small separate program for developers. It runs **every** rule in `Tests.cs` on the
+test EPUBs in `test_files` and compares the number of hits per rule with `test_files/expected.txt`.
+It compiles the validator's own `src` files (all except `Program.cs`) and uses the same `EpubValidator.ValidateEntry`
+as the real program. It ignores `rules.txt` and `settings.txt`, writes no reports and does not touch `C:/mathml_validator`.
+
+Run it from the project folder:
+```
+dotnet run --project tools/RegressionCheck
+```
+Each expected line prints `PASS` or `FAIL`. The exit code is 0 when everything passes and 1 when something fails.
+A rule that gives hits on an EPUB without being listed for it in `expected.txt` is also a `FAIL`, so a new rule
+that breaks an old one shows up.
+
+`expected.txt` has one line per EPUB and rule (file names may contain spaces; `#` starts a comment):
+```
+test_issue_9.epub    math-units-mathvariant   7
+```
+Lines starting with `# PLANNED` hold the counts for rules that are not implemented yet.
+
+Options (after `--`):
+- `--only <text>`: check only the EPUBs whose file name contains the text, e.g. `--only test_issue_23`
+- `--details`: list every hit with entry, line:column and the exact node
+- `--print`: print the current counts in `expected.txt` format without comparing (to create or update the baseline)
+- `--expected <file>`: use another expected counts file
+- a folder path: use another folder of test EPUBs
+
+Workflow for a new rule: add the rule to `Tests.cs`, remove `# PLANNED` from its line in `expected.txt`
+(or add a line), run the check, then add the rule ID to `C:/mathml_validator/rules.txt` so the real program runs it.

@@ -1,0 +1,114 @@
+# ============================================================
+# Expected hit counts for the regression check (tools\RegressionCheck).
+#
+# Format:  <file>.epub   <rule-id>   <count>
+#   - one line per EPUB + rule; the count must match exactly
+#   - a rule that gives hits on an EPUB but is not listed here is a FAIL ("unexpected")
+#   - everything after '#' is a comment
+#
+# Lines starting with "# PLANNED" are the counts a rule should give once it is
+# implemented (see the step-by-step plan). Remove "# PLANNED" when the rule is added.
+#
+# Run:  dotnet run --project tools\RegressionCheck
+# Show the current counts in this format:  ... -- --print
+# ============================================================
+
+
+# ---- Main test file (regression baseline for the original rules) --------------------
+Test file MathML validator.epub   math-wrong-number-of-children-2   6
+Test file MathML validator.epub   math-wrong-number-of-children-3   2
+Test file MathML validator.epub   math-number-in-mtext              17
+Test file MathML validator.epub   math-single-mn                    2
+Test file MathML validator.epub   math-decimal-comma-split          1
+Test file MathML validator.epub   math-consecutive-mn-merge         2
+Test file MathML validator.epub   math-operator-in-mtext            10
+Test file MathML validator.epub   math-units-in-mtext               16
+Test file MathML validator.epub   math-variable-mtext               18
+Test file MathML validator.epub   math-functions-as-mtext           4
+Test file MathML validator.epub   math-function-and-value-in-mi     2
+Test file MathML validator.epub   math-empty-symbols                6
+Test file MathML validator.epub   math-ocr-lnloglim                 6
+Test file MathML validator.epub   math-hyphen-minus-used            3
+Test file MathML validator.epub   math-adjacent-mtext-merge         1
+Test file MathML validator.epub   math-mrow-only-child              1
+Test file MathML validator.epub   math-mrow-with-one-child          2
+Test file MathML validator.epub   math-reference-labels-in-math     4
+Test file MathML validator.epub   math-punctuation-outside          5
+Test file MathML validator.epub   math-space-mn-mo-mi               3
+
+
+# ---- Closed issues, already implemented ----------------------------------------------
+# #7  math-units-in-mtext (the "km 10" example must not be flagged by this rule)
+test_issue_7.epub    math-number-in-mtext              9
+test_issue_7.epub    math-units-in-mtext               25
+test_issue_7.epub    math-variable-mtext               6
+
+# #8  letter "i" before sets. The file is xml:lang="en", so all 16 are flagged;
+#     with xml:lang="nb" the six "i" cases are skipped (checked by hand: 10 hits).
+test_issue_8.epub    math-variable-mtext               16
+
+# #9  math-units-mathvariant
+test_issue_9.epub    math-units-mathvariant            7
+
+# #27 math-only-one-number = existing rule math-single-mn
+test_issue_27.epub   math-single-mn                    2
+test_issue_27.epub   math-punctuation-outside          1    # the "," after the first <math>
+
+# #17 math-consecutive-math-elements: the team decided NOT to implement it. No hits expected.
+
+
+# ---- Open issues: current state + PLANNED counts --------------------------------------
+# #11 math-potentially-wrong-unicode
+test_issue_11.epub   math-hyphen-minus-used            1    # the ASCII "-" in x2-x1
+# PLANNED test_issue_11.epub   math-potentially-wrong-unicode   2    # the triangles that should be Δ and ∇
+
+# #12 math-operator-outside-mathml (needs step 0.2: files without <math> are skipped today)
+# PLANNED test_issue_12.epub   math-operator-outside-mathml     5
+
+# #13 math-invalid-namespace-tag (needs steps 0.2 and 0.4: the file is not well-formed XML)
+# PLANNED test_issue_13.epub   math-invalid-namespace-tag       2
+
+# #15 math-alt-attributes
+# PLANNED test_issue_15.epub   math-alt-attributes              2
+
+# #19 math-semantics
+# PLANNED test_issue_19.epub   math-semantics                   4
+
+# #20 math-mn-not-a-number. Today the file fails on &nbsp; (step 0.3 fixes this).
+test_issue_20.epub   entry-parse-error                 1
+# PLANNED test_issue_20.epub   math-mn-not-a-number             4
+
+# #21 math-mtable-one-cell
+# PLANNED test_issue_21.epub   math-mtable-one-cell             2
+
+# #22 math-missing-invisible-times (only "number followed by (")
+# PLANNED test_issue_22.epub   math-missing-invisible-times     1
+
+# #23 math-missing-invisible-function-operator
+#     KNOWN BUG: math-function-and-value-in-mi flags sinh, cosh and tanh. Should be 0 after the fix.
+test_issue_23.epub   math-function-and-value-in-mi     3
+# PLANNED test_issue_23.epub   math-missing-invisible-function-operator   16
+
+# #24 math-split-chemical-elements
+# PLANNED test_issue_24.epub   math-split-chemical-elements     2
+
+# #25 math-apostrophe-quote. Today the file fails on the typos </m> and </frac> (fix the test file).
+test_issue_25.epub   entry-parse-error                 1
+# PLANNED test_issue_25.epub   math-apostrophe-quote            3
+
+# #26 math-greek-outside-mathml (needs step 0.2)
+# PLANNED test_issue_26.epub   math-greek-outside-mathml        5
+
+# #28 math-mfenced
+# PLANNED test_issue_28.epub   math-mfenced                     2
+
+# #29 math-msqrt-mroot. Today the file fails on the typo </text> (fix the test file).
+test_issue_29.epub   entry-parse-error                 1
+# PLANNED test_issue_29.epub   math-msqrt-mroot                 5
+
+# #30 math-exponent-o
+# PLANNED test_issue_30.epub   math-exponent-o                  3
+
+# #31 math-inline-no-space. The two math-punctuation-outside hits are the ", " and "." examples.
+test_issue_31.epub   math-punctuation-outside          2
+# PLANNED test_issue_31.epub   math-inline-no-space             3

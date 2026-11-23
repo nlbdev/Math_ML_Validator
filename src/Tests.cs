@@ -192,29 +192,6 @@ namespace Math_ML_Validator
                         return false;
                     }
 
-                    // Updated GetContextAncestor per request:
-                    // - If the selected node itself is a <math>, return it as the context ancestor.
-                    // - Otherwise return the nearest ancestor that is <math>; if none found, fall back to nearest <p>, then immediate parent.
-                    XElement GetContextAncestor(XElement node)
-                    {
-                        if (node == null) return null;
-
-                        // If the node itself is <math>, use it directly
-                        if (string.Equals(node.Name.LocalName, "math", StringComparison.OrdinalIgnoreCase))
-                            return node;
-
-                        // Prefer nearest ancestor <math>
-                        var ancestorMath = node.Ancestors().FirstOrDefault(a => string.Equals(a.Name.LocalName, "math", StringComparison.OrdinalIgnoreCase));
-                        if (ancestorMath != null) return ancestorMath;
-
-                        // If no math ancestor, prefer <p>
-                        var ancestorP = node.Ancestors().FirstOrDefault(a => string.Equals(a.Name.LocalName, "p", StringComparison.OrdinalIgnoreCase));
-                        if (ancestorP != null) return ancestorP;
-
-                        // Fallback to immediate parent
-                        return node.Parent;
-                    }
-
                     var offenders = new List<XElement>();
 
                     foreach (var mn in doc.Descendants().Where(e => string.Equals(e.Name.LocalName, "mn", StringComparison.OrdinalIgnoreCase)))
@@ -238,40 +215,15 @@ namespace Math_ML_Validator
                         if (HasMfencedAncestor(mn) || HasMfencedAncestor(next1) || HasMfencedAncestor(next2)) continue;
                         if (IsDirectlyBracketedByMo(mn, next2)) continue;
 
-                        // get line/column from original if available
-                        int line = -1, column = -1;
-                        if (mn is IXmlLineInfo li && li.HasLineInfo())
-                        {
-                            line = li.LineNumber;
-                            column = li.LinePosition;
-                        }
-
                         // build the trio (ExactNode)
                         var trioClone = new XElement("wrapper",
                             new XElement(mn),
                             new XElement(next1),
                             new XElement(next2)
                         );
-            
-                        //if (line > 0) trioClone.SetAttributeValue("line", line);
-                        //if (column > 0) trioClone.SetAttributeValue("column", column);
 
-                        // find and clone the parent context using updated GetContextAncestor (Snippet)
-                        var ctxAnc = GetContextAncestor(mn);
-                        XElement contextClone = ctxAnc != null ? new XElement(ctxAnc) : null;
-
-                        // build wrapper with explicit Snippet and ExactNode children
-                        var wrapper = new XElement("Context",
-
-                            contextClone != null ? new XElement("Snippet", contextClone) : null,
-                            new XElement("ExactNode", trioClone)
-                        );
-
-                        // convenience attributes on wrapper
-                        if (line > 0) wrapper.SetAttributeValue("line", line);
-                        if (column > 0) wrapper.SetAttributeValue("column", column);
-
-                        offenders.Add(wrapper);
+                        // Snippet = nearest <math> (then <p>, then parent); line/column from the first <mn>
+                        offenders.Add(XmlHelpers.MakeContext(mn, XmlHelpers.GetContextAncestor(mn), trioClone));
                     }
 
                     return offenders.AsEnumerable();
@@ -304,19 +256,6 @@ namespace Math_ML_Validator
                         // if direct parent is mrow, we allow detection here (even if mrow's ancestor is excluded)
                         if (string.Equals(p.Name.LocalName, "mrow", StringComparison.OrdinalIgnoreCase)) return false;
                         return skipDirectParents.Contains(p.Name.LocalName);
-                    }
-
-                    // Choose the context ancestor: if the selected node itself is math -> use it,
-                    // otherwise choose nearest math ancestor, otherwise nearest p, otherwise immediate parent.
-                    XElement GetContextAncestor(XElement node)
-                    {
-                        if (node == null) return null;
-                        if (string.Equals(node.Name.LocalName, "math", StringComparison.OrdinalIgnoreCase)) return node;
-                        var mathAnc = node.Ancestors().FirstOrDefault(a => string.Equals(a.Name.LocalName, "math", StringComparison.OrdinalIgnoreCase));
-                        if (mathAnc != null) return mathAnc;
-                        var pAnc = node.Ancestors().FirstOrDefault(a => string.Equals(a.Name.LocalName, "p", StringComparison.OrdinalIgnoreCase));
-                        if (pAnc != null) return pAnc;
-                        return node.Parent;
                     }
 
                     var offenders = new List<XElement>();
@@ -358,38 +297,14 @@ namespace Math_ML_Validator
                         // is placed inside an excluded ancestor (msup etc). The HasSkippedDirectParent logic above
                         // allows such detection because the direct parent is mrow (not skipped) even if mrow's ancestor is skipped.
 
-                        // Determine line/column from original if available (use firstMn)
-                        int line = -1, column = -1;
-                        if (firstMn is IXmlLineInfo li && li.HasLineInfo())
-                        {
-                            line = li.LineNumber;
-                            column = li.LinePosition;
-                        }
-
                         // Build ExactNode wrapper that contains the two mn nodes (clone them so result is independent)
                         var pair = new XElement("wrapper",
                             new XElement(firstMn),
                             new XElement(secondMn)
                         );
 
-                        //if (line > 0) pair.SetAttributeValue("line", line);
-                        //if (column > 0) pair.SetAttributeValue("column", column);
-                    
-
-                        // Build Snippet: choose context ancestor (prefer math, then p, then parent)
-                        var ctxAnc = GetContextAncestor(firstMn) ?? parent;
-                        XElement contextClone = ctxAnc != null ? new XElement(ctxAnc) : null;
-
-                        // Compose wrapper <Context> with explicit <Snippet> and <ExactNode> children
-                        var wrapper = new XElement("Context",
-                            contextClone != null ? new XElement("Snippet", contextClone) : null,
-                            new XElement("ExactNode", pair)
-                        );
-
-                        if (line > 0) wrapper.SetAttributeValue("line", line);
-                        if (column > 0) wrapper.SetAttributeValue("column", column);
-
-                        offenders.Add(wrapper);
+                        // Snippet = nearest <math> (then <p>, then parent); line/column from the first <mn>
+                        offenders.Add(XmlHelpers.MakeContext(firstMn, XmlHelpers.GetContextAncestor(firstMn) ?? parent, pair));
                     }
 
                     return offenders.AsEnumerable();
@@ -899,19 +814,6 @@ namespace Math_ML_Validator
             {
                 var punctPattern = new Regex(@"^[\.\,\:\;\?\!]", RegexOptions.CultureInvariant);
 
-                // Choose the context ancestor: if the selected node itself is math -> use it,
-                // otherwise choose nearest math ancestor, otherwise nearest p, otherwise immediate parent.
-                XElement GetContextAncestor(XElement node)
-                {
-                    if (node == null) return null;
-                    if (string.Equals(node.Name.LocalName, "math", StringComparison.OrdinalIgnoreCase)) return node;
-                    var mathAnc = node.Ancestors().FirstOrDefault(a => string.Equals(a.Name.LocalName, "math", StringComparison.OrdinalIgnoreCase));
-                    if (mathAnc != null) return mathAnc;
-                    var pAnc = node.Ancestors().FirstOrDefault(a => string.Equals(a.Name.LocalName, "p", StringComparison.OrdinalIgnoreCase));
-                    if (pAnc != null) return pAnc;
-                    return node.Parent;
-                }
-
                 var offenders = new List<XElement>();
 
                 foreach (var math in doc.Descendants().Where(e => string.Equals(e.Name.LocalName, "math", StringComparison.OrdinalIgnoreCase)))
@@ -980,56 +882,35 @@ namespace Math_ML_Validator
                     // If candidate starts with punctuation, build a Context wrapper and attach exact line/column from the offending node
                     if (IsTextNodeStartingWithPunct(candidate) || IsElementStartingWithPunct(candidate))
                     {
-                        int line = -1, column = -1;
                         XElement exactNodeClone = null;
                         XElement ctxAnc = null;
 
                         if (candidate is XElement ce)
                         {
                             // offending element itself
-                            if (ce is IXmlLineInfo eli && eli.HasLineInfo())
-                            {
-                                line = eli.LineNumber;
-                                column = eli.LinePosition;
-                            }
                             exactNodeClone = new XElement(ce);
-                            ctxAnc = GetContextAncestor(ce) ?? parent;
+                            ctxAnc = XmlHelpers.GetContextAncestor(ce) ?? parent;
                         }
                         else if (candidate is XText ct)
                         {
                             // offending text node: prefer to return its parent element as ExactNode clone if available,
-                            // but capture line/column from the text node itself so we report the exact punctuation location.
-                            if (ct is IXmlLineInfo tli && tli.HasLineInfo())
-                            {
-                                line = tli.LineNumber;
-                                column = tli.LinePosition;
-                            }
-
+                            // but line/column come from the text node itself so we report the exact punctuation location.
                             if (ct.Parent is XElement p)
                             {
                                 // clone the parent element so the snippet shows the element that contains the text
                                 exactNodeClone = new XElement(p);
-                                ctxAnc = GetContextAncestor(p) ?? parent;
+                                ctxAnc = XmlHelpers.GetContextAncestor(p) ?? parent;
                             }
                             else
                             {
                                 // no parent element: wrap the text in a small element so ExactNode is an XElement
                                 exactNodeClone = new XElement("text", ct.Value);
-                                ctxAnc = GetContextAncestor(math) ?? parent;
+                                ctxAnc = XmlHelpers.GetContextAncestor(math) ?? parent;
                             }
                         }
 
-                        // Compose wrapper <Context> with explicit <Snippet> and <ExactNode> children
-                        XElement contextClone = ctxAnc != null ? new XElement(ctxAnc) : null;
-                        var wrapper = new XElement("Context",
-                            contextClone != null ? new XElement("Snippet", contextClone) : null,
-                            new XElement("ExactNode", exactNodeClone)
-                        );
-
-                        if (line > 0) wrapper.SetAttributeValue("line", line);
-                        if (column > 0) wrapper.SetAttributeValue("column", column);
-
-                        offenders.Add(wrapper);
+                        // line/column from the offending node (element or text node)
+                        offenders.Add(XmlHelpers.MakeContext(candidate, ctxAnc, exactNodeClone));
                     }
                 }
 
