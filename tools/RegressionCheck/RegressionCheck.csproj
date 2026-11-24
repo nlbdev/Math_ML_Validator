@@ -1,0 +1,23 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!--
+    Regression check for the MathML validator rules.
+    Compiles the validator's own source files from ..\..\src (not copies), so it always
+    tests the current rules. Program.cs is left out because it has its own Main and the
+    fixed C:\mathml_validator paths. See README.md, section "Regression check".
+  -->
+
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <TargetFramework>net9.0</TargetFramework>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+    <!-- Nullable warnings come from the shared src files; they are reported by the main project build. -->
+    <NoWarn>$(NoWarn);CS8600;CS8601;CS8602;CS8603;CS8604;CS8618;CS8619;CS8625;CS0168;CS0219</NoWarn>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <Compile Include="..\..\src\**\*.cs" Exclude="..\..\src\Program.cs" Link="src\%(RecursiveDir)%(Filename)%(Extension)" />
+  </ItemGroup>
+
+</Project>

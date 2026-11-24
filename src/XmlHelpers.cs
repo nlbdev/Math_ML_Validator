@@ -9,11 +9,15 @@
 //   - TruncateCollapseWhitespace: collapse and truncate strings
 //   - IndexOfNormalized         : whitespace-normalized string search
 //   - GetLineColumnFromOffset   : convert char offset to line/column
+//   - GetContextAncestor        : pick the snippet element for a rule hit
+//   - MakeContext               : build the <Context> wrapper a rule can return
 // ============================================================
 
 using System;
 using System.IO;
+using System.Linq;
 using System.Text.RegularExpressions;
+using System.Xml;
 using System.Xml.Linq;
 
 /// <summary>
@@ -142,5 +146,46 @@ static class XmlHelpers
         // Offset is past the end of the content — report last line
         line = lineno;
         col = 1;
+    }
+
+    /// <summary>
+    /// Chooses the element to show as the snippet for a rule hit:
+    /// the node itself if it is &lt;math&gt;, otherwise the nearest &lt;math&gt; ancestor,
+    /// otherwise the nearest &lt;p&gt; ancestor, otherwise the immediate parent.
+    /// </summary>
+    /// <param name="node">The node the rule flagged</param>
+    public static XElement? GetContextAncestor(XElement? node)
+    {
+        if (node == null) return null;
+        if (string.Equals(node.Name.LocalName, "math", StringComparison.OrdinalIgnoreCase)) return node;
+        var mathAnc = node.Ancestors().FirstOrDefault(a => string.Equals(a.Name.LocalName, "math", StringComparison.OrdinalIgnoreCase));
+        if (mathAnc != null) return mathAnc;
+        var pAnc = node.Ancestors().FirstOrDefault(a => string.Equals(a.Name.LocalName, "p", StringComparison.OrdinalIgnoreCase));
+        if (pAnc != null) return pAnc;
+        return node.Parent;
+    }
+
+    /// <summary>
+    /// Builds the &lt;Context&gt; wrapper that a rule returns when the problem is not one simple element
+    /// (for example several sibling elements, or a text node). EpubValidator reads it like this:
+    /// &lt;Context line=".." column=".."&gt;&lt;Snippet&gt;(copy of contextAncestor)&lt;/Snippet&gt;&lt;ExactNode&gt;(exactNode)&lt;/ExactNode&gt;&lt;/Context&gt;
+    /// </summary>
+    /// <param name="location">The node whose line/column is reported (element or text node)</param>
+    /// <param name="contextAncestor">The element shown as snippet (copied); null = no snippet</param>
+    /// <param name="exactNode">The node(s) shown as exact node; wrap several siblings in one element</param>
+    public static XElement MakeContext(XObject location, XElement? contextAncestor, XElement exactNode)
+    {
+        var wrapper = new XElement("Context",
+            contextAncestor != null ? new XElement("Snippet", new XElement(contextAncestor)) : null,
+            new XElement("ExactNode", exactNode)
+        );
+
+        if (location is IXmlLineInfo li && li.HasLineInfo())
+        {
+            if (li.LineNumber > 0) wrapper.SetAttributeValue("line", li.LineNumber);
+            if (li.LinePosition > 0) wrapper.SetAttributeValue("column", li.LinePosition);
+        }
+
+        return wrapper;
     }
 }
