@@ -54,7 +54,8 @@ test_issue_9.epub    math-units-mathvariant            7
 test_issue_27.epub   math-single-mn                    2
 test_issue_27.epub   math-punctuation-outside          1    # the "," after the first <math>
 
-# #17 math-consecutive-math-elements: the team decided NOT to implement it. No hits expected.
+# #17 math-consecutive-math-elements: the team decided NOT to implement it.
+test_issue_17.epub   math-missing-invisible-function-operator   1    # |sin(nθ)| without &#x2061; (rule #23)
 
 
 # ---- Open issues: current state + PLANNED counts --------------------------------------
@@ -69,28 +70,28 @@ test_issue_11.epub   math-hyphen-minus-used            1    # the ASCII "-" in x
 # PLANNED test_issue_13.epub   math-invalid-namespace-tag       2
 
 # #15 math-alt-attributes
-# PLANNED test_issue_15.epub   math-alt-attributes              2
+test_issue_15.epub   math-alt-attributes              2
 
 # #19 math-semantics
-# PLANNED test_issue_19.epub   math-semantics                   4
+test_issue_19.epub   math-semantics                   4
+test_issue_19.epub   math-missing-invisible-function-operator   4    # |sin(nθ)| without &#x2061; in each example (rule #23)
 
 # #20 math-mn-not-a-number. Today the file fails on &nbsp; (step 0.3 fixes this).
 test_issue_20.epub   entry-parse-error                 1
 # PLANNED test_issue_20.epub   math-mn-not-a-number             4
 
 # #21 math-mtable-one-cell
-# PLANNED test_issue_21.epub   math-mtable-one-cell             2
+test_issue_21.epub   math-mtable-one-cell             2
 
 # #22 math-missing-invisible-times (only "number followed by (")
-# PLANNED test_issue_22.epub   math-missing-invisible-times     1
+test_issue_22.epub   math-missing-invisible-times     1
 
 # #23 math-missing-invisible-function-operator
-#     KNOWN BUG: math-function-and-value-in-mi flags sinh, cosh and tanh. Should be 0 after the fix.
-test_issue_23.epub   math-function-and-value-in-mi     3
-# PLANNED test_issue_23.epub   math-missing-invisible-function-operator   16
+#     math-function-and-value-in-mi used to flag sinh, cosh and tanh here (fixed), so it now has 0 hits.
+test_issue_23.epub   math-missing-invisible-function-operator   16
 
 # #24 math-split-chemical-elements
-# PLANNED test_issue_24.epub   math-split-chemical-elements     2
+test_issue_24.epub   math-split-chemical-elements     2
 
 # #25 math-apostrophe-quote. Today the file fails on the typos </m> and </frac> (fix the test file).
 test_issue_25.epub   entry-parse-error                 1
@@ -100,15 +101,15 @@ test_issue_25.epub   entry-parse-error                 1
 # PLANNED test_issue_26.epub   math-greek-outside-mathml        5
 
 # #28 math-mfenced
-# PLANNED test_issue_28.epub   math-mfenced                     2
+test_issue_28.epub   math-mfenced                     2
 
 # #29 math-msqrt-mroot. Today the file fails on the typo </text> (fix the test file).
 test_issue_29.epub   entry-parse-error                 1
 # PLANNED test_issue_29.epub   math-msqrt-mroot                 5
 
 # #30 math-exponent-o
-# PLANNED test_issue_30.epub   math-exponent-o                  3
+test_issue_30.epub   math-exponent-o                  3
 
 # #31 math-inline-no-space. The two math-punctuation-outside hits are the ", " and "." examples.
 test_issue_31.epub   math-punctuation-outside          2
-# PLANNED test_issue_31.epub   math-inline-no-space             3
+test_issue_31.epub   math-inline-no-space             3

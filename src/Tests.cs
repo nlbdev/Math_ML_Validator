@@ -627,6 +627,8 @@ namespace Math_ML_Validator
                               {
                                   var txt = (mi.Value ?? string.Empty).Trim();
                                   if (string.IsNullOrEmpty(txt)) return false;
+                                  // sinh, cosh and tanh are function names themselves, not sin/cos/tan + "h"
+                                  if (txt.Equals("sinh", StringComparison.OrdinalIgnoreCase) || txt.Equals("cosh", StringComparison.OrdinalIgnoreCase) || txt.Equals("tanh", StringComparison.OrdinalIgnoreCase)) return false;
                                   return funcPrefixAttachedPattern.IsMatch(txt);
                               });
                 }
@@ -1070,6 +1072,274 @@ namespace Math_ML_Validator
                         }
                     }
                     return result;
+                }
+            },
+
+            new TestRule
+            {
+                Id = "math-mfenced",
+                Description = "Deprecated <mfenced> element. It is not supported in MathML Core; write the fences as <mo> elements inside an <mrow> instead.",
+                Checker = doc => doc
+                    .Descendants()                                    // search all elements
+                    .Where(e => e.Name.LocalName == "mfenced")       // every <mfenced>, regardless of namespace or attributes
+            },
+
+            new TestRule
+            {
+                Id = "math-alt-attributes",
+                Description = "<math> has an alttext or altimg attribute, which the guidelines no longer allow.",
+                Checker = doc => doc
+                    .Descendants()                                    // search all elements
+                    .Where(e => e.Name.LocalName == "math")          // match <math> regardless of namespace
+                    .Where(m => m.Attributes().Any(a =>
+                        a.Name.LocalName == "alttext"
+                        || a.Name.LocalName.StartsWith("altimg", StringComparison.Ordinal))) // altimg, altimg-width, altimg-height, altimg-valign
+            },
+
+            new TestRule
+            {
+                Id = "math-semantics",
+                Description = "<semantics>, <annotation> or <annotation-xml> is used. The guidelines allow these only when the order specifically asks for them.",
+                Checker = doc => doc
+                    .Descendants()                                    // search all elements
+                    .Where(e => e.Name.LocalName == "semantics"      // every <semantics>; covers any annotation inside it
+                                || ((e.Name.LocalName == "annotation" || e.Name.LocalName == "annotation-xml")
+                                    && !e.Ancestors().Any(a => a.Name.LocalName == "semantics"))) // annotation outside <semantics>
+            },
+
+            new TestRule
+            {
+                Id = "math-mtable-one-cell",
+                Description = "<mtable> with only one cell (<mtd>). The content should probably not be marked up as a table.",
+                Checker = doc => doc
+                    .Descendants()                                    // search all elements
+                    .Where(e => e.Name.LocalName == "mtable")        // match <mtable> regardless of namespace
+                    .Where(t => t.Descendants().Count(d =>
+                        d.Name.LocalName == "mtd"
+                        && d.Ancestors().FirstOrDefault(a => a.Name.LocalName == "mtable") == t) == 1) // count only this table's own cells, not those of a nested table
+            },
+
+            new TestRule
+            {
+                Id = "math-exponent-o",
+                Description = "The exponent of <msup> is the letter o or O, which is likely an OCR error for the number 0.",
+                Checker = doc => doc
+                    .Descendants()                                    // search all elements
+                    .Where(e => e.Name.LocalName == "mi"
+                                && e.Parent?.Name.LocalName == "msup"         // inside <msup>
+                                && e.ElementsBeforeSelf().Count() == 1        // second child = the exponent
+                                && e.Value.Trim() is "o" or "O")              // attributes such as mathvariant do not matter
+            },
+
+            new TestRule
+            {
+                Id = "math-missing-invisible-times",
+                Description = "A number is followed directly by an opening parenthesis, without the invisible times operator (&#x2062;) between them.",
+                Checker = doc =>
+                {
+                    // In these elements each child is a separate argument (numerator, base, ...), not part of a row
+                    var layoutParents = new HashSet<string>
+                    {
+                        "mfrac", "msup", "msub", "msubsup", "mover", "munder", "munderover", "mroot", "mmultiscripts"
+                    };
+
+                    bool IsOpenParen(XElement? e) =>
+                        e != null && e.Name.LocalName == "mo" && e.Value.Trim() == "(";
+
+                    var offenders = new List<XElement>();
+
+                    foreach (var mn in doc.Descendants().Where(e => e.Name.LocalName == "mn"))
+                    {
+                        if (mn.Parent == null || layoutParents.Contains(mn.Parent.Name.LocalName)) continue;
+
+                        var next = mn.ElementsAfterSelf().FirstOrDefault();
+
+                        // <mn>2</mn><mo>(</mo> ... or <mn>2</mn><mrow><mo>(</mo> ... </mrow>
+                        bool missing = IsOpenParen(next)
+                            || (next != null && next.Name.LocalName == "mrow" && IsOpenParen(next.Elements().FirstOrDefault()));
+                        if (!missing) continue;
+
+                        // ExactNode shows the number and what follows it; line/column from the <mn>
+                        var pair = new XElement("wrapper", new XElement(mn), new XElement(next!));
+                        offenders.Add(XmlHelpers.MakeContext(mn, XmlHelpers.GetContextAncestor(mn), pair));
+                    }
+
+                    return offenders;
+                }
+            },
+
+            new TestRule
+            {
+                Id = "math-missing-invisible-function-operator",
+                Description = "A function name (sin, cos, tan, ln, lg, log, sinh, cosh, tanh, exp, f, g, h) is followed by an opening parenthesis or a one-letter <mi>, without the invisible function application operator (&#x2061;) between them.",
+                Checker = doc =>
+                {
+                    // Case-sensitive: only lowercase names are recognised
+                    var functionNames = new HashSet<string>(StringComparer.Ordinal)
+                    {
+                        "sin", "cos", "tan", "ln", "lg", "log", "sinh", "cosh", "tanh", "exp", "f", "g", "h"
+                    };
+
+                    // In these elements each child is a separate argument (base, exponent, ...), not part of a row,
+                    // so e.g. <msup><mi>sin</mi><mn>2</mn></msup> or <msub><mi>log</mi><mi>a</mi></msub> are not checked
+                    var layoutParents = new HashSet<string>
+                    {
+                        "mfrac", "msup", "msub", "msubsup", "mover", "munder", "munderover", "mroot", "mmultiscripts"
+                    };
+
+                    bool IsOpenParen(XElement? e) =>
+                        e != null && e.Name.LocalName == "mo" && e.Value.Trim() == "(";
+
+                    // <mi> with exactly one letter (also a single letter outside the BMP, e.g. U+1D465)
+                    bool IsOneLetterMi(XElement? e)
+                    {
+                        if (e == null || e.Name.LocalName != "mi") return false;
+                        var v = e.Value.Trim();
+                        return Rune.TryGetRuneAt(v, 0, out var r) && r.Utf16SequenceLength == v.Length && Rune.IsLetter(r);
+                    }
+
+                    var offenders = new List<XElement>();
+
+                    foreach (var mi in doc.Descendants().Where(e => e.Name.LocalName == "mi" && functionNames.Contains(e.Value.Trim())))
+                    {
+                        if (mi.Parent == null || layoutParents.Contains(mi.Parent.Name.LocalName)) continue;
+
+                        var next = mi.ElementsAfterSelf().FirstOrDefault();
+
+                        // <mi>sin</mi><mo>(</mo>, <mi>sin</mi><mrow><mo>(</mo>...</mrow> or <mi>sin</mi><mi>x</mi>
+                        // (a number after the name, e.g. <mi>sin</mi><mn>2</mn>, is not flagged)
+                        bool missing = IsOpenParen(next)
+                            || IsOneLetterMi(next)
+                            || (next != null && next.Name.LocalName == "mrow" && IsOpenParen(next.Elements().FirstOrDefault()));
+                        if (!missing) continue;
+
+                        // ExactNode shows the function name and what follows it; line/column from the function name
+                        var pair = new XElement("wrapper", new XElement(mi), new XElement(next!));
+                        offenders.Add(XmlHelpers.MakeContext(mi, XmlHelpers.GetContextAncestor(mi), pair));
+                    }
+
+                    return offenders;
+                }
+            },
+
+            new TestRule
+            {
+                Id = "math-split-chemical-elements",
+                Description = "A chemical element may be split into two <mi> elements, for example <mi>N</mi><mi>a</mi> instead of <mi>Na</mi>. Only two-letter element symbols are checked (case-sensitive); the full list is in the rule documentation.",
+                Checker = doc =>
+                {
+                    // The complete list from the GitHub issue (case-sensitive)
+                    var elements = new HashSet<string>(StringComparer.Ordinal)
+                    {
+                        "Ac", "Ag", "Al", "Am", "Ar", "As", "At", "Au", "Ba", "Be", "Bh", "Bi", "Bk", "Br",
+                        "Ca", "Cd", "Ce", "Cf", "Cl", "Cm", "Cn", "Co", "Cr", "Cs", "Cu", "Db", "Ds", "Dy",
+                        "Er", "Es", "Eu", "Fe", "Fl", "Fm", "Fr", "Ga", "Gd", "Ge", "Hf", "Hg", "Ho", "In",
+                        "Ir", "Kr", "La", "Li", "Lr", "Lu", "Lv", "Mc", "Md", "Mg", "Mn", "Mo", "Mt", "Na",
+                        "Nb", "Nd", "Ne", "Nh", "Ni", "No", "Np", "Os", "Pa", "Pb", "Pd", "Pm", "Po", "Pr",
+                        "Pt", "Pu", "Ra", "Rb", "Re", "Rf", "Rg", "Rh", "Rn", "Ru", "Sb", "Sc", "Se", "Sg",
+                        "Si", "Sm", "Sn", "Sr", "Ta", "Tb", "Tc", "Te", "Th", "Ti", "Tl", "Tm", "Ts", "Xe",
+                        "Yb", "Zn", "Zr"
+                    };
+
+                    // In these elements each child is a separate argument (base, subscript, ...), not part of a row,
+                    // so e.g. <msub><mi>C</mi><mi>l</mi></msub> (C with subscript l) is not checked
+                    var layoutParents = new HashSet<string>
+                    {
+                        "mfrac", "msup", "msub", "msubsup", "mover", "munder", "munderover", "mroot", "mmultiscripts"
+                    };
+
+                    // Text of an <mi> with exactly one character, otherwise null
+                    string? SingleCharMi(XElement? e)
+                    {
+                        if (e == null || e.Name.LocalName != "mi") return null;
+                        var v = e.Value.Trim();
+                        return v.Length == 1 ? v : null;
+                    }
+
+                    var offenders = new List<XElement>();
+
+                    foreach (var first in doc.Descendants().Where(e => e.Name.LocalName == "mi"))
+                    {
+                        if (first.Parent == null || layoutParents.Contains(first.Parent.Name.LocalName)) continue;
+
+                        var a = SingleCharMi(first);
+                        if (a == null || !char.IsUpper(a[0])) continue;
+
+                        var next = first.ElementsAfterSelf().FirstOrDefault();
+                        if (next == null) continue;
+
+                        // The second letter is the next <mi>, or the base of a script element
+                        // that carries the index or charge, e.g. <mi>C</mi><msub><mi>l</mi><mn>2</mn></msub> (Cl2)
+                        var secondMi = next.Name.LocalName is "msub" or "msup" or "msubsup"
+                            ? next.Elements().FirstOrDefault()
+                            : next;
+                        var b = SingleCharMi(secondMi);
+                        if (b == null || !char.IsLower(b[0])) continue;
+
+                        if (!elements.Contains(a + b)) continue;
+
+                        // ExactNode shows both parts; line/column from the first letter
+                        var pair = new XElement("wrapper", new XElement(first), new XElement(next));
+                        offenders.Add(XmlHelpers.MakeContext(first, XmlHelpers.GetContextAncestor(first), pair));
+                    }
+
+                    return offenders;
+                }
+            },
+
+            new TestRule
+            {
+                Id = "math-inline-no-space",
+                Description = "Inline <math> directly preceded or followed by a letter, with no space between the text and the math. This can make TTS audio come out in the wrong order. Punctuation and hyphens next to the math are allowed.",
+                Checker = doc =>
+                {
+                    // HTML inline elements: text inside them runs on with the text around them
+                    var inlineElements = new HashSet<string>(StringComparer.OrdinalIgnoreCase)
+                    {
+                        "a", "abbr", "b", "bdi", "bdo", "cite", "code", "dfn", "em", "i", "kbd", "mark",
+                        "q", "s", "samp", "small", "span", "strong", "sub", "sup", "time", "u", "var"
+                    };
+
+                    // The character right next to the <math> in the running text (before = true: the last
+                    // character before it, otherwise the first character after it). Text inside inline elements
+                    // counts; a block element, <br>, image or another <math> is a boundary (returns null).
+                    char? Neighbour(XElement math, bool before)
+                    {
+                        XElement current = math;
+                        while (true)
+                        {
+                            var sibling = before ? current.PreviousNode : current.NextNode;
+                            while (sibling != null)
+                            {
+                                string? text = sibling switch
+                                {
+                                    XText t => t.Value,
+                                    XElement e when inlineElements.Contains(e.Name.LocalName) => e.Value,
+                                    XElement => null,   // boundary
+                                    _ => ""             // comments etc.: skip
+                                };
+                                if (text == null) return null;
+                                if (text.Length > 0) return before ? text[^1] : text[0];
+                                sibling = before ? sibling.PreviousNode : sibling.NextNode;
+                            }
+
+                            // Nothing more at this level: continue outside the parent only if it is an inline element
+                            var parent = current.Parent;
+                            if (parent == null || !inlineElements.Contains(parent.Name.LocalName)) return null;
+                            current = parent;
+                        }
+                    }
+
+                    return doc.Descendants()
+                              .Where(e => e.Name.LocalName == "math")
+                              .Where(m => (string?)m.Attribute("display") != "block")   // inline math only
+                              .Where(m =>
+                              {
+                                  var b = Neighbour(m, before: true);
+                                  var a = Neighbour(m, before: false);
+                                  // only letters are flagged; spaces, punctuation and hyphens are fine
+                                  return (b.HasValue && char.IsLetter(b.Value)) || (a.HasValue && char.IsLetter(a.Value));
+                              });
                 }
             },
 

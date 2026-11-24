@@ -163,6 +163,8 @@ Examples:
 - $\text{ln} \hspace{0.25em} x$
 - $\text{sin} 2x$
 
+`sinh`, `cosh` and `tanh` on their own are function names and are not flagged.
+
 ### math-empty-symbols
 
 Checks for empty or whitespace-only symbol/text elements.
@@ -226,3 +228,100 @@ Checks for U+2005 (four-per-em-space) or U+2003 (em-space) inside token elements
 ### math-units-mathvariant
 
 Checks whether the attribute `mathvariant="normal"` is missing from the `<mi>` tag of single-letter units.
+
+### math-mfenced
+
+Checks for the deprecated `<mfenced>` element. Every occurrence is flagged, with or without `open`, `close` or `separators` attributes.
+
+`<mfenced>` is not supported in MathML Core, and our guidelines no longer allow it. Write the fences as `<mo>` elements inside an `<mrow>` instead, for example `<mrow><mo>[</mo><mn>0</mn><mo>,</mo><mi>∞</mi><mo>]</mo></mrow>`.
+
+### math-alt-attributes
+
+Checks for `<math>` elements with an `alttext` or `altimg` attribute. The guidelines no longer allow these attributes. The related `altimg-width`, `altimg-height` and `altimg-valign` attributes are flagged too.
+
+Each `<math>` element is reported once, even if it has several of these attributes.
+
+### math-semantics
+
+Checks for the `<semantics>`, `<annotation>` and `<annotation-xml>` elements. The guidelines say not to use them unless the order specifically asks for them.
+
+The rule reports:
+
+- every `<semantics>` element, with or without an `<annotation>` or `<annotation-xml>` inside it (reported once, not once per annotation)
+- every `<annotation>` or `<annotation-xml>` element that is not inside a `<semantics>` element
+
+If a book is ordered with `<semantics>`, leave `math-semantics` out of `rules.txt` when validating that book.
+
+### math-mtable-one-cell
+
+Checks for `<mtable>` elements that contain exactly one `<mtd>` cell. Such content should probably not be marked up as a table.
+
+Only the table's own cells are counted. Cells of a table nested inside it belong to the nested table, so each table is checked on its own. A row with an equation label (`<mlabeledtr>`, or an `<mtd>` with `intent=":equation-label"`) has two cells and is not flagged.
+
+### math-exponent-o
+
+Checks for `<mi>o</mi>` or `<mi>O</mi>` as the exponent (second child) of an `<msup>` element. This is likely an OCR error for the number 0, for example `10` with exponent `o` instead of `0`.
+
+The `<mi>` is flagged even if it has attributes, for example `<mi mathvariant="normal">o</mi>`. Surrounding whitespace is ignored. A letter o anywhere else, such as the base of `<msup>` or in a subscript, is not flagged.
+
+### math-missing-invisible-times
+
+Checks for a number followed directly by an opening parenthesis, without the invisible times operator `<mo>&#x2062;</mo>` between them.
+
+Flagged:
+
+- `<mn>2</mn><mo>(</mo>...`
+- `<mn>2</mn><mrow><mo>(</mo>...<mo>)</mo></mrow>` (the parenthesis group wrapped in `<mrow>`)
+
+Correct: `<mn>2</mn><mo>&#x2062;</mo><mo>(</mo>...`
+
+A number that is a separate argument of a layout element (for example the numerator of `<mfrac>` or the base of `<msup>`) is not checked, because the element after it is not part of the same row. Other places where invisible times may be missing, such as `)(` or between `<mfrac>` and `<msup>`, are deliberately not checked (decided in the GitHub issue).
+
+### math-missing-invisible-function-operator
+
+Checks for a function name that is not followed by the invisible function application operator `<mo>&#x2061;</mo>`.
+
+Function names (lowercase only): sin, cos, tan, ln, lg, log, sinh, cosh, tanh, exp, f, g, h.
+
+Flagged when the `<mi>` with the function name is followed directly by:
+
+- an opening parenthesis: `<mi>sin</mi><mo>(</mo>`, or `<mi>sin</mi><mrow><mo>(</mo>...</mrow>`
+- an `<mi>` with one letter: `<mi>sin</mi><mi>x</mi>`
+
+Correct: `<mi>sin</mi><mo>&#x2061;</mo><mo>(</mo>...` and `<mi>f</mi><mo>&#x2061;</mo><mi>x</mi>`
+
+Not flagged:
+
+- a number after the function name, for example `<msup><mi>sin</mi><mn>2</mn></msup><mi>x</mi>`
+- a function name that is a separate argument of a layout element, for example the base of `<msup>` or `<msub>` (`<msub><mi>log</mi><mi>a</mi></msub>`)
+- uppercase names such as `Sin` or `F`
+
+### math-split-chemical-elements
+
+This rule looks for chemical elements which have been incorrectly captured in separate elements. For example, sodium should be marked up as `<mi>Na</mi>`, not `<mi>N</mi><mi>a</mi>`. The rule is meant for chemistry; in other math, two single-letter variables next to each other are normal, so the rule only checks this exact list of element symbols, with capitalisation:
+
+Ac Ag Al Am Ar As At Au Ba Be Bh Bi Bk Br Ca Cd Ce Cf Cl Cm Cn Co Cr Cs Cu Db Ds Dy Er Es Eu Fe Fl Fm Fr Ga Gd Ge Hf Hg Ho In Ir Kr La Li Lr Lu Lv Mc Md Mg Mn Mo Mt Na Nb Nd Ne Nh Ni No Np Os Pa Pb Pd Pm Po Pr Pt Pu Ra Rb Re Rf Rg Rh Rn Ru Sb Sc Se Sg Si Sm Sn Sr Ta Tb Tc Te Th Ti Tl Tm Ts Xe Yb Zn Zr
+
+Flagged:
+
+- `<mi>N</mi><mi>a</mi>` (an `<mi>` with one uppercase letter followed by an `<mi>` with one lowercase letter)
+- `<mi>C</mi><msub><mi>l</mi><mn>2</mn></msub>`: the second letter carries the index or charge (`<msub>`, `<msup>` or `<msubsup>`)
+
+Not flagged:
+
+- letters with an operator between them, for example `<mi>N</mi><mo>&#x2062;</mo><mi>a</mi>`
+- letters that are separate arguments of a layout element, for example `<msub><mi>C</mi><mi>l</mi></msub>` (C with subscript l)
+
+### math-inline-no-space
+
+Checks for inline `<math>` elements that are directly preceded or followed by a letter, with no space between the text and the math, for example `expression<math>...</math>` or `<math>...</math>with`. Without a space, TTS audio can be synchronised in the wrong order.
+
+Each `<math>` element is reported once, even if both sides touch a letter.
+
+Not flagged:
+
+- punctuation or a hyphen next to the math, for example `<math>...</math>-coefficient` or `<math>...</math>,`
+- digits, spaces and no-break spaces next to the math
+- block math (`display="block"`)
+
+Text inside inline elements such as `<em>`, `<strong>` or `<span>` counts as running text. A block element, `<br>`, an image or another `<math>` element counts as a boundary.
