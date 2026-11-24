@@ -105,9 +105,18 @@ static class HtmlReportWriter
                      var context = HtmlEscape(rawContext);
                     //var context = HtmlEscape(issue.Snippet);// no xmlns stripping here
 
-                    // Remove wrapper and math root tags from the exact node before display
+                    // Remove wrapper and math root tags from the exact node before display.
+                    // Only a bare <math> root and its own closing tag are removed. A <math> with attributes
+                    // (display, alttext) is shown whole, and a <math> inside a bigger node (such as the <p>
+                    // of math-punctuation-outside) keeps both tags, so the report shows where the math ends.
 					rawExact = rawExact.Replace("<wrapper>", "").Replace("</wrapper>", "").Trim();
-                    rawExact = rawExact.Replace("<math>", "").Replace("</math>", "").Trim();
+                    if (rawExact.StartsWith("<math>", StringComparison.Ordinal))
+                    {
+                        rawExact = rawExact.Substring("<math>".Length);
+                        if (rawExact.EndsWith("</math>", StringComparison.Ordinal))
+                            rawExact = rawExact.Substring(0, rawExact.Length - "</math>".Length);
+                        rawExact = rawExact.Trim();
+                    }
                     var exact = HtmlEscape(rawExact); // this will display without xmlns
                     //var exact = HtmlEscape(issue.ExactNode); // this will display xmlns if present, 
 
